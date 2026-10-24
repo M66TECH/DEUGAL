@@ -184,15 +184,23 @@ describe("SnippetStore.list", () => {
     expect(one.map((s) => s.title)).toEqual(["carrot"]);
   });
 
-  it("sorts by recent, used and alpha", async () => {
+  it("sorts by recent, created, used and alpha", async () => {
     const store = makeStore();
-    seed(store);
-    const alpha = store.list({ sort: "alpha" });
-    expect(alpha.map((s) => s.title)).toEqual(["apple", "banana", "carrot", "date"]);
+    const first = store.add({ title: "banana", content: "yellow", tags: ["food"] });
     await new Promise((resolve) => setTimeout(resolve, 5));
-    store.add({ title: "zzz", content: "z", tags: [] });
-    const byRecent = store.list({ sort: "recent", limit: 1 });
-    expect(byRecent[0]?.title).toBe("zzz");
+    const second = store.add({ title: "apple", content: "red", tags: ["food"] });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const third = store.add({ title: "carrot", content: "orange", tags: ["veg"] });
+
+    const alpha = store.list({ sort: "alpha" });
+    expect(alpha.map((s) => s.title)).toEqual(["apple", "banana", "carrot"]);
+
+    const created = store.list({ sort: "created" });
+    expect(created.map((s) => s.id)).toEqual([third.id, second.id, first.id]);
+
+    store.update(first.id, { content: "changed" });
+    const recent = store.list({ sort: "recent" });
+    expect(recent[0]?.id).toBe(first.id);
   });
 
   it("limits results and clamps negative limits", () => {

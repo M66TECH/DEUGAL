@@ -32,7 +32,7 @@ export interface StoreData {
   snippets: Snippet[];
 }
 
-export type SortMode = "recent" | "used" | "alpha";
+export type SortMode = "recent" | "created" | "used" | "alpha";
 
 export interface ListOptions {
   tags?: string[] | undefined;

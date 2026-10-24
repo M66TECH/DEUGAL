@@ -213,6 +213,29 @@ function buildProgram(deps: MainDeps): Command {
     );
 
   program
+    .command("recent [n]")
+    .description("show the n most recently created snippets (default 10)")
+    .option("--json", "print JSON instead of a table")
+    .action(async (n: string | undefined, options: { json?: boolean }) => {
+      const store = getStore();
+      const limit = n !== undefined ? Number.parseInt(n, 10) : 10;
+      if (Number.isNaN(limit) || limit < 0) {
+        throw new StoreError(`Invalid count "${String(n)}". Use a positive number.`, "invalid");
+      }
+      const items = store.list({ sort: "created", limit });
+      if (options.json) {
+        writeJson(items);
+        return;
+      }
+      if (items.length === 0) {
+        printInfoLine('No snippets yet. Add one with: deugal add "my snippet" "content"');
+        return;
+      }
+      printList(items, "created");
+      printInfoLine(`${items.length} snippet(s), newest first`);
+    });
+
+  program
     .command("search <terms...>")
     .alias("find")
     .description("search snippets by title, tags, description, language or content (fuzzy on titles)")

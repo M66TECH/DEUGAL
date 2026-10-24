@@ -151,6 +151,18 @@ describe("main() CLI flows", () => {
     expect(store().all()[0]!.tags).toEqual(["two"]);
   });
 
+  it("recent lists newest creations first with a limit", async () => {
+    await capture(() => main(["add", "old one", "1"]));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await capture(() => main(["add", "new one", "2"]));
+    const { code, out } = await capture(() => main(["recent", "1"]));
+    expect(code).toBe(0);
+    expect(out).toContain("new one");
+    expect(out).not.toContain(" old one ");
+    expect(out).toContain("newest first");
+    expect(await main(["recent", "abc"])).toBe(1);
+  });
+
   it("search finds matches", async () => {
     await capture(() => main(["add", "kubernetes apply", "kubectl apply -f .", "-t", "k8s"]));
     const { code, out } = await capture(() => main(["search", "k8s"]));
