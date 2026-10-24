@@ -310,6 +310,42 @@ describe("SnippetStore.setPinned", () => {
   });
 });
 
+describe("SnippetStore.dedupe", () => {
+  it("keeps the most used of identical contents and removes the rest", () => {
+    const store = makeStore();
+    store.add({ title: "dup A", content: "same body", tags: [] });
+    store.add({ title: "dup B", content: "same body", tags: [] });
+    const c = store.add({ title: "dup C", content: "same body", tags: [] });
+    store.markUsed(c.id);
+    store.markUsed(c.id);
+    store.add({ title: "unique", content: "different body", tags: [] });
+
+    const result = store.dedupe();
+    expect(result.removed.map((s) => s.title).sort()).toEqual(["dup A", "dup B"].sort());
+    expect(result.kept).toBe(2);
+    const remaining = store.all();
+    expect(remaining.map((s) => s.title)).toEqual(["dup C", "unique"]);
+  });
+
+  it("keeps the oldest when usage counts are tied", () => {
+    const store = makeStore();
+    const first = store.add({ title: "first", content: "same", tags: [] });
+    store.add({ title: "second", content: "same", tags: [] });
+    const result = store.dedupe();
+    expect(result.kept).toBe(1);
+    expect(store.all()[0]?.id).toBe(first.id);
+  });
+
+  it("does nothing without duplicates", () => {
+    const store = makeStore();
+    store.add({ title: "a", content: "one", tags: [] });
+    store.add({ title: "b", content: "two", tags: [] });
+    const result = store.dedupe();
+    expect(result.removed).toEqual([]);
+    expect(store.size()).toBe(2);
+  });
+});
+
 describe("SnippetStore.renameTag", () => {
   it("renames a tag everywhere and merges duplicates", () => {
     const store = makeStore();
