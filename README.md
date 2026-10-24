@@ -58,21 +58,27 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | Command | Description |
 | --- | --- |
 | `deugal add <title> [content]` | Add a snippet (argument, piped stdin, or `--editor`) |
-| `deugal list` / `ls` | List snippets (`--sort recent\|used\|alpha`, `--tag`, `--limit`, `--json`) |
-| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles (AND semantics) |
+| `deugal list` / `ls` | List snippets (`--sort recent\|created\|used\|alpha`, `--tag`, `--limit`, `--json`) |
+| `deugal recent [n]` | The n most recently created snippets (default 10) |
+| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles (AND semantics), `--tag` filter |
+| `deugal related <id>` | Snippets sharing at least one tag with `<id>`, ranked by overlap |
 | `deugal show <id>` | Metadata + content |
 | `deugal use <id>` | Raw content on stdout, pipe-friendly (`--copy`, `--no-track`) |
 | `deugal edit <id>` | Edit content in `$EDITOR` |
+| `deugal pin <id>` / `unpin <id>` | Pinned snippets always appear first in lists (marked `*`) |
 | `deugal rm <id> --force` | Delete (requires `--force`) |
 | `deugal tag add/rm <id> <tags...>` | Manage tags on a snippet |
 | `deugal tags` | All tags with counts |
-| `deugal related <id>` | Snippets sharing at least one tag with `<id>`, ranked by overlap |
-| `deugal export <file>` | Export to JSON or YAML (format inferred from extension) |
-| `deugal import <file>` | Import (`--overwrite` to replace same-id snippets) |
+| `deugal export <file>` / `export -` | Export to a JSON/YAML file or to stdout |
+| `deugal import <file>` / `import -` | Import from a file or from piped stdin (`--overwrite` to replace same-id snippets) |
 | `deugal stats` | Collection stats |
 | `deugal config` | Show data locations |
 
-Global flag: every command that prints data also accepts `--json` where noted, for scripting.
+Global flag: `--no-color` disables colored output (the `NO_COLOR` environment variable is honored too). Every command that prints data also accepts `--json` where noted, for scripting.
+
+## Backups
+
+Every save keeps a rotating backup of the previous store states next to the data file: `snippets.json.bak1`, `.bak2`, `.bak3`. If a save goes wrong, you can restore from these.
 
 ## Data location
 
@@ -114,6 +120,10 @@ src/
   ui/             output formatting
 tests/            vitest unit + CLI integration tests
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Short version: one branch per feature, tests required, merge with `--no-ff`.
 
 ## License
 
