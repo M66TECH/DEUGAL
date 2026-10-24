@@ -12,6 +12,7 @@ import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import type { ExportBundle, NewSnippet, SortMode } from "./core/types.js";
+import { dim } from "./ui/color.js";
 import {
   printError,
   printInfoLine,
@@ -175,17 +176,22 @@ function buildProgram(deps: MainDeps): Command {
     .alias("ls")
     .description("list snippets (most recently updated first by default)")
     .option("-t, --tag <tags...>", "filter by tags (AND), comma or space separated")
+    .option("-l, --lang <lang>", "filter by language hint, e.g. ts, bash, sql")
     .addOption(
       new Option("-s, --sort <mode>", "sort order")
-        .choices(["recent", "used", "alpha"])
+        .choices(["recent", "created", "used", "alpha"])
         .default("recent" as SortMode),
     )
     .option("-n, --limit <n>", "show at most n snippets", Number.parseInt)
     .option("--json", "print JSON instead of a table")
     .action(
-      async (options: { tag?: string[]; sort: SortMode; limit?: number; json?: boolean }) => {
+      async (options: { tag?: string[]; lang?: string; sort: SortMode; limit?: number; json?: boolean }) => {
         const store = getStore();
-        const items = store.list({ tags: parseTags(options.tag), sort: options.sort, limit: options.limit });
+        const lang = options.lang?.trim().toLowerCase();
+        let items = store.list({ tags: parseTags(options.tag), sort: options.sort, limit: options.limit });
+        if (lang) {
+          items = items.filter((s) => s.language === lang);
+        }
         if (options.json) {
           writeJson(items);
           return;
@@ -316,17 +322,33 @@ function buildProgram(deps: MainDeps): Command {
     });
 
   program
-    .command("rm <id>")
-    .description("delete a snippet (requires --force)")
+    .command("rm <ids...>")
+    .description("delete one or more snippets (requires --force)")
     .option("-f, --force", "actually delete, no prompt")
-    .action(async (id: string, options: { force?: boolean }) => {
+    .action(async (ids: string[], options: { force?: boolean }) => {
       if (!options.force) {
         throw new StoreError("Refusing to delete without --force. Re-run with: deugal rm <id> --force", "invalid");
       }
       const store = getStore();
-      const snippet = store.resolve(id);
-      store.delete(snippet.id);
-      printSuccess(`Deleted ${snippet.id}  ${snippet.title}`);
+      let deleted = 0;
+      const errors: string[] = [];
+      for (const id of ids) {
+        try {
+          const snippet = store.resolve(id);
+          store.delete(snippet.id);
+          deleted += 1;
+          printSuccess(`Deleted ${snippet.id}  ${snippet.title}`);
+        } catch (err) {
+          errors.push(`${id}: ${errorMessage(err)}`);
+        }
+      }
+      if (errors.length > 0) {
+        throw new StoreError(
+          `Deleted ${deleted} of ${ids.length}. Failures:\n${errors.map((e) => `  ${e}`).join("\n")}`,
+          "not-found",
+        );
+      }
+      printInfoLine(`${deleted} snippet(s) deleted`);
     });
 
   program
@@ -439,6 +461,31 @@ function buildProgram(deps: MainDeps): Command {
       for (const id of skippedIds) {
         printInfoLine(`  skipped existing id: ${id} (use --overwrite to replace)`);
       }
+    });
+
+  program
+    .command("recover")
+    .description("list the rotating backups of the store, or restore one with --from")
+    .option("--from <n>", "restore from backup number n (1 = most recent)", Number.parseInt)
+    .action(async (options: { from?: number }) => {
+      const store = getStore();
+      if (options.from !== undefined) {
+        const restored = store.restoreBackup(options.from);
+        printSuccess(`Restored ${store.file} from ${restored}`);
+        printInfoLine("The previous state was kept as .pre-recover");
+        return;
+      }
+      const backups = store.backupFiles();
+      if (backups.length === 0) {
+        printInfoLine("No backups yet. They appear after the first modifications of the store.");
+        return;
+      }
+      for (const b of backups) {
+        process.stdout.write(
+          `${dim(`bak${b.index}`)}  ${String(Math.round(b.sizeBytes / 1024)).padStart(5)} KB  ${b.modifiedAt.toISOString().slice(0, 19).replace("T", " ")}\n`,
+        );
+      }
+      printInfoLine("Restore with: deugal recover --from <n>");
     });
 
   program
