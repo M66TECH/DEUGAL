@@ -58,21 +58,24 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | Command | Description |
 | --- | --- |
 | `deugal add <title> [content]` | Add a snippet (argument, piped stdin, or `--editor`) |
-| `deugal list` / `ls` | List snippets (`--sort recent\|created\|used\|alpha`, `--tag`, `--limit`, `--json`) |
+| `deugal list` / `ls` | List snippets (`--sort recent\|created\|used\|alpha`, `--tag`, `--lang`, `--limit`, `--json`) |
 | `deugal recent [n]` | The n most recently created snippets (default 10) |
-| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles (AND semantics), `--tag` filter |
+| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles and tags (AND semantics), `--tag` filter |
 | `deugal related <id>` | Snippets sharing at least one tag with `<id>`, ranked by overlap |
 | `deugal show <id>` | Metadata + content |
 | `deugal use <id>` | Raw content on stdout, pipe-friendly (`--copy`, `--no-track`) |
-| `deugal edit <id>` | Edit content in `$EDITOR` |
+| `deugal edit <id>` | Edit content in `$EDITOR` (or your configured editor) |
 | `deugal pin <id>` / `unpin <id>` | Pinned snippets always appear first in lists (marked `*`) |
-| `deugal rm <id> --force` | Delete (requires `--force`) |
+| `deugal rm <id> [ids...] --force` | Delete one or many snippets (reports each failure) |
 | `deugal tag add/rm <id> <tags...>` | Manage tags on a snippet |
+| `deugal tag rename <old> <new>` | Rename a tag on every snippet |
 | `deugal tags` | All tags with counts |
 | `deugal export <file>` / `export -` | Export to a JSON/YAML file or to stdout |
 | `deugal import <file>` / `import -` | Import from a file or from piped stdin (`--overwrite` to replace same-id snippets) |
+| `deugal recover [--from n]` | List the rotating backups, or restore the nth |
 | `deugal stats` | Collection stats |
-| `deugal config` | Show data locations |
+| `deugal config` | Show preferences (`config set editor\|sort\|limit <value>`, `config reset`) |
+| `deugal completions <shell>` | Print a completion script for bash, zsh or powershell |
 
 Global flag: `--no-color` disables colored output (the `NO_COLOR` environment variable is honored too). Every command that prints data also accepts `--json` where noted, for scripting.
 
@@ -82,13 +85,17 @@ Every save keeps a rotating backup of the previous store states next to the data
 
 ## Data location
 
-Snippets are stored in `~/.deugal/snippets.json` by default. Override with:
+Snippets are stored in `~/.deugal/snippets.json` by default, preferences in `~/.deugal/config.json`. Override the directory with:
 
 ```bash
 export DEUGAL_HOME=/path/to/your/dir     # e.g. inside a synced folder
 ```
 
 The store is written atomically (temp file + rename), so a crash mid-write will not corrupt your data.
+
+## Backups
+
+Every save rotates the previous store states next to the data file: `snippets.json.bak1`, `.bak2`, `.bak3`. If something goes wrong, run `deugal recover` to list them and `deugal recover --from 2` to restore. The state before a restore is kept as `.pre-recover`.
 
 ## Import format
 
