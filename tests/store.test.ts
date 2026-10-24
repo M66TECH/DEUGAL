@@ -68,6 +68,26 @@ describe("SnippetStore.add", () => {
     const files = readdirSync(dir);
     expect(files.filter((f) => f.includes(".tmp"))).toEqual([]);
   });
+
+  it("rotates up to three .bak copies of the store on each save", async () => {
+    const file = path.join(dir, "rotated.json");
+    const store = new SnippetStore(file);
+    const versions: string[] = [];
+    for (let i = 1; i <= 5; i++) {
+      store.add({ title: `v${i}`, content: `content ${i}`, tags: [] });
+      versions.push(readFileSync(file, "utf8"));
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    const files = readdirSync(dir);
+    for (let i = 1; i <= 3; i++) {
+      expect(files).toContain(`rotated.json.bak${i}`);
+    }
+    expect(files.some((f) => f.includes(".bak4"))).toBe(false);
+    const bak1 = readFileSync(path.join(dir, "rotated.json.bak1"), "utf8");
+    const bak3 = readFileSync(path.join(dir, "rotated.json.bak3"), "utf8");
+    expect(bak1).toBe(versions[3]!);
+    expect(bak3).toBe(versions[1]!);
+  });
 });
 
 describe("SnippetStore.resolve", () => {
