@@ -34,19 +34,27 @@ function idByTitle(title: string): string {
   return found.id;
 }
 
-async function capture(run: () => Promise<number>): Promise<{ code: number; out: string }> {
+async function capture(run: () => Promise<number>): Promise<{ code: number; out: string; err: string }> {
   const chunks: string[] = [];
-  const original = process.stdout.write.bind(process.stdout);
-  const patched = ((chunk: unknown): boolean => {
+  const errors: string[] = [];
+  const originalOut = process.stdout.write.bind(process.stdout);
+  const originalErr = process.stderr.write.bind(process.stderr);
+  const patchedOut = ((chunk: unknown): boolean => {
     chunks.push(typeof chunk === "string" ? chunk : String(chunk));
     return true;
   }) as typeof process.stdout.write;
-  process.stdout.write = patched;
+  const patchedErr = ((chunk: unknown): boolean => {
+    errors.push(typeof chunk === "string" ? chunk : String(chunk));
+    return true;
+  }) as typeof process.stderr.write;
+  process.stdout.write = patchedOut;
+  process.stderr.write = patchedErr;
   try {
     const code = await run();
-    return { code, out: chunks.join("") };
+    return { code, out: chunks.join(""), err: errors.join("") };
   } finally {
-    process.stdout.write = original;
+    process.stdout.write = originalOut;
+    process.stderr.write = originalErr;
   }
 }
 
@@ -134,13 +142,47 @@ describe("main() CLI flows", () => {
     expect(store().all()[0]!.useCount).toBe(1);
   });
 
+  it("recover lists and restores backups", async () => {
+    await capture(() => main(["add", "keep me", "good"]));
+    await capture(() => main(["add", "second", "still good"]));
+    const { code: listCode, out: listOut } = await capture(() => main(["recover"]));
+    expect(listCode).toBe(0);
+    expect(listOut).toContain("bak1");
+    const { code: restoreCode, out: restoreOut } = await capture(() => main(["recover", "--from", "1"]));
+    expect(restoreCode).toBe(0);
+    expect(restoreOut).toContain("Restored");
+    expect(store().size()).toBe(1);
+  });
+
+  it("list --lang filters by language", async () => {
+    await capture(() => main(["add", "bash thing", "echo", "-l", "bash"]));
+    await capture(() => main(["add", "sql thing", "SELECT", "-l", "sql"]));
+    const { code, out } = await capture(() => main(["list", "--lang", "sql"]));
+    expect(code).toBe(0);
+    expect(out).toContain("sql thing");
+    expect(out).not.toContain(" bash thing ");
+  });
+
   it("rm requires --force", async () => {
     await capture(() => main(["add", "victim", "data"]));
-    const id = store().all()[0]!.id;
+    const id = idByTitle("victim");
     expect(await main(["rm", id])).toBe(1);
     expect(store().size()).toBe(1);
     expect(await main(["rm", id, "--force"])).toBe(0);
     expect(store().size()).toBe(0);
+  });
+
+  it("rm handles several ids and reports failures individually", async () => {
+    await capture(() => main(["add", "one", "1"]));
+    await capture(() => main(["add", "two", "2"]));
+    await capture(() => main(["add", "three", "3"]));
+    const idOne = idByTitle("one");
+    const idTwo = idByTitle("two");
+    const badCode = await main(["rm", idOne, "zzzzzzzz", idTwo, "--force"]);
+    expect(badCode).toBe(1);
+    expect(store().size()).toBe(1);
+    const { err } = await capture(() => main(["rm", "zzzzzzzz", "--force"]));
+    expect(err).toContain("No snippet matches");
   });
 
   it("tag add and tag rm round trip", async () => {

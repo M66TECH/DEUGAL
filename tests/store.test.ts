@@ -88,6 +88,23 @@ describe("SnippetStore.add", () => {
     expect(bak1).toBe(versions[3]!);
     expect(bak3).toBe(versions[1]!);
   });
+
+  it("lists and restores backups keeping a pre-recover copy", () => {
+    const file = path.join(dir, "restorable.json");
+    const store = new SnippetStore(file);
+    store.add({ title: "original", content: "safe", tags: [] });
+    store.add({ title: "broken change", content: "oops", tags: [] });
+    const backups = store.backupFiles();
+    expect(backups.map((b) => b.index)).toEqual([1]);
+
+    const restored = store.restoreBackup(1);
+    expect(restored).toContain(".bak1");
+    const after = store.all();
+    expect(after.map((s) => s.title)).toEqual(["original"]);
+
+    expect(readdirSync(dir)).toContain("restorable.json.pre-recover");
+    expect(() => store.restoreBackup(2)).toThrow(StoreError);
+  });
 });
 
 describe("SnippetStore.resolve", () => {
