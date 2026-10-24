@@ -165,7 +165,17 @@ function buildProgram(deps: MainDeps): Command {
 
   program.hook("preAction", (thisCommand) => {
     const opts = thisCommand.opts() as { color?: boolean };
-    setColorEnabled(opts.color !== false);
+    let colorEnabled = opts.color !== false;
+    if (colorEnabled) {
+      try {
+        const mode = loadUserConfig(loadConfig().dataDir).color;
+        if (mode === "never") colorEnabled = false;
+        else if (mode === "always") colorEnabled = true;
+      } catch {
+        /* invalid config or missing binary: fall back to auto detection */
+      }
+    }
+    setColorEnabled(colorEnabled);
   });
 
   const getStore = (): SnippetStore => {
@@ -643,6 +653,7 @@ function buildProgram(deps: MainDeps): Command {
     process.stdout.write(`editor:  ${userConfig.editor ?? "(default: $EDITOR, notepad or vi)"}\n`);
     process.stdout.write(`sort:    ${userConfig.sort ?? "(default: recent)"}\n`);
     process.stdout.write(`limit:   ${String(userConfig.limit ?? "(default: none)")}\n`);
+    process.stdout.write(`color:   ${userConfig.color ?? "(default: auto)"}\n`);
     process.stdout.write(`snippets: ${store.size()}\n`);
     printInfoLine("Change with: deugal config set editor|sort|limit <value>");
     printInfoLine("Reset with: deugal config reset");
