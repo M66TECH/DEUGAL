@@ -340,6 +340,25 @@ export class SnippetStore {
     return source;
   }
 
+  renameTag(from: string, to: string): { renamed: number; tag: string } {
+    const source = from.trim().toLowerCase();
+    const target = to.trim().toLowerCase();
+    if (!source || !target) throw new StoreError("Both tag names are required", "invalid");
+    const data = this.load();
+    let renamed = 0;
+    for (let i = 0; i < data.snippets.length; i++) {
+      const snippet = data.snippets[i]!;
+      if (!snippet.tags.includes(source)) continue;
+      const nextTags = snippet.tags
+        .map((t) => (t === source ? target : t))
+        .filter((t, index, arr) => arr.indexOf(t) === index);
+      data.snippets[i] = { ...snippet, tags: nextTags };
+      renamed += 1;
+    }
+    if (renamed > 0) this.save(data);
+    return { renamed, tag: target };
+  }
+
   tagCounts(): Array<{ tag: string; count: number }> {
     const counts = new Map<string, number>();
     for (const s of this.load().snippets) {
