@@ -49,6 +49,8 @@ export function normalizeSnippetInput(input: NewSnippet): NewSnippet {
 }
 
 function compareByMode(a: Snippet, b: Snippet, mode: SortMode): number {
+  const pinDiff = Number(b.pinned === true) - Number(a.pinned === true);
+  if (pinDiff !== 0) return pinDiff;
   switch (mode) {
     case "alpha":
       return a.title.localeCompare(b.title);
@@ -263,6 +265,21 @@ export class SnippetStore {
       items = items.slice(0, limit);
     }
     return items;
+  }
+
+  setPinned(idOrPrefix: string, pinned: boolean): Snippet {
+    const data = this.load();
+    const index = data.snippets.findIndex((s) => s.id === idOrPrefix);
+    if (index < 0) {
+      throw new StoreError(`No snippet with id "${idOrPrefix}"`, "not-found");
+    }
+    const current = data.snippets[index]!;
+    const next: Snippet = { ...current };
+    if (pinned) next.pinned = true;
+    else delete next.pinned;
+    data.snippets[index] = next;
+    this.save(data);
+    return next;
   }
 
   related(idOrPrefix: string): Array<{ snippet: Snippet; shared: string[] }> {

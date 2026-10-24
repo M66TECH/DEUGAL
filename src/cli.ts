@@ -278,6 +278,24 @@ function buildProgram(deps: MainDeps): Command {
     });
 
   program
+    .command("pin <id>")
+    .description("pin a snippet so it always appears first in lists")
+    .action(async (id: string) => {
+      const store = getStore();
+      const updated = store.setPinned(id, true);
+      printSuccess(`Pinned ${updated.id}  ${updated.title}`);
+    });
+
+  program
+    .command("unpin <id>")
+    .description("remove the pin from a snippet")
+    .action(async (id: string) => {
+      const store = getStore();
+      const updated = store.setPinned(id, false);
+      printSuccess(`Unpinned ${updated.id}  ${updated.title}`);
+    });
+
+  program
     .command("show <id>")
     .description("show a snippet's metadata and content (ids are prefix-matchable)")
     .option("--json", "print JSON")

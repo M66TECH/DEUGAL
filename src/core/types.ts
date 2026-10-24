@@ -9,6 +9,7 @@ export interface Snippet {
   updatedAt: string;
   useCount: number;
   lastUsedAt?: string;
+  pinned?: boolean;
 }
 
 export interface NewSnippet {
