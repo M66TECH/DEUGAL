@@ -241,6 +241,30 @@ describe("SnippetStore.related", () => {
   });
 });
 
+describe("SnippetStore.setPinned", () => {
+  it("pins, unpins and keeps pinned items first in every sort", () => {
+    const store = makeStore();
+    store.add({ title: "plain", content: "1", tags: [] });
+    const target = store.add({ title: "star me", content: "2", tags: [] });
+    store.add({ title: "another", content: "3", tags: [] });
+
+    const pinned = store.setPinned(target.id, true);
+    expect(pinned.pinned).toBe(true);
+
+    expect(store.list({ sort: "alpha" })[0]?.id).toBe(target.id);
+    expect(store.list({ sort: "used" })[0]?.id).toBe(target.id);
+
+    const unpinned = store.setPinned(target.id, false);
+    expect("pinned" in unpinned).toBe(false);
+    expect(store.list({ sort: "alpha" })[0]?.id).not.toBe(target.id);
+  });
+
+  it("rejects unknown ids", () => {
+    const store = makeStore();
+    expect(() => store.setPinned("zzzzzzzz", true)).toThrow(StoreError);
+  });
+});
+
 describe("SnippetStore.tagCounts", () => {
   it("counts and sorts tags", () => {
     const store = makeStore();

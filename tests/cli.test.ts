@@ -151,6 +151,19 @@ describe("main() CLI flows", () => {
     expect(store().all()[0]!.tags).toEqual(["two"]);
   });
 
+  it("pin and unpin move a snippet to the top of lists", async () => {
+    await capture(() => main(["add", "first plain", "1"]));
+    await capture(() => main(["add", "second plain", "2"]));
+    const id = idByTitle("second plain");
+    const { out } = await capture(() => main(["pin", id]));
+    expect(out).toContain("Pinned");
+    const { out: listed } = await capture(() => main(["list"]));
+    expect(listed.indexOf("second plain")).toBeLessThan(listed.indexOf("first plain"));
+    expect(listed).toContain("* second plain");
+    const { out: unpinned } = await capture(() => main(["unpin", id]));
+    expect(unpinned).toContain("Unpinned");
+  });
+
   it("recent lists newest creations first with a limit", async () => {
     await capture(() => main(["add", "old one", "1"]));
     await new Promise((resolve) => setTimeout(resolve, 5));

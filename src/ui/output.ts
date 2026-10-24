@@ -24,7 +24,7 @@ function computeWidths(items: Snippet[]): ListColumn {
   const widths: ListColumn = { id: 2, title: 5, tags: 4, lang: 4, uses: 4 };
   for (const s of items) {
     widths.id = Math.max(widths.id, s.id.length);
-    widths.title = Math.min(42, Math.max(widths.title, s.title.length));
+    widths.title = Math.min(42, Math.max(widths.title, (s.pinned ? 2 : 0) + s.title.length));
     widths.tags = Math.min(26, Math.max(widths.tags, s.tags.join(",").length));
     widths.lang = Math.min(10, Math.max(widths.lang, (s.language ?? "").length));
   }
@@ -39,8 +39,9 @@ export function printList(items: Snippet[], sort: SortMode): void {
     `${dim("uses".padStart(widths.uses))}`;
   process.stdout.write(`${dim(header)}\n`);
   for (const s of items) {
+    const title = s.pinned ? `* ${s.title}` : s.title;
     const row =
-      `${dim(s.id.padEnd(widths.id))}  ${cyan(truncate(s.title, widths.title).padEnd(widths.title))}  ` +
+      `${dim(s.id.padEnd(widths.id))}  ${cyan(truncate(title, widths.title).padEnd(widths.title))}  ` +
       `${yellow(truncate(s.tags.join(","), widths.tags).padEnd(widths.tags))}  ` +
       `${magenta((s.language ?? "").padEnd(widths.lang))}  ` +
       `${String(s.useCount).padStart(widths.uses)}`;
