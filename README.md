@@ -1,5 +1,7 @@
 # DEUGAL
 
+[![CI](https://github.com/M66TECH/DEUGAL/actions/workflows/ci.yml/badge.svg)](https://github.com/M66TECH/DEUGAL/actions/workflows/ci.yml)
+
 A fast, local-first snippet manager for the terminal. Store, search, tag and reuse the commands and code chunks you type over and over — without leaving your shell, without an account, without your snippets ever leaving your machine.
 
 ## Why
