@@ -33,8 +33,12 @@ function normalizeTags(tags: unknown): string[] {
   return out;
 }
 
+function collapseWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 export function normalizeSnippetInput(input: NewSnippet): NewSnippet {
-  const title = input.title.trim();
+  const title = collapseWhitespace(input.title);
   if (!title) throw new StoreError("Snippet title cannot be empty", "invalid");
   if (!input.content.trim()) throw new StoreError("Snippet content cannot be empty", "invalid");
   const normalized: NewSnippet = {
@@ -220,7 +224,7 @@ export class SnippetStore {
     const current = data.snippets[index]!;
     const next: Snippet = { ...current };
     if (patch.title !== undefined) {
-      const title = patch.title.trim();
+      const title = collapseWhitespace(patch.title);
       if (!title) throw new StoreError("Snippet title cannot be empty", "invalid");
       next.title = title;
     }
