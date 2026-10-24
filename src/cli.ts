@@ -226,10 +226,12 @@ function buildProgram(deps: MainDeps): Command {
     .command("search <terms...>")
     .alias("find")
     .description("search snippets by title, tags, description, language or content (fuzzy on titles)")
+    .option("-t, --tag <tags...>", "restrict search to snippets having all these tags")
     .option("--json", "print JSON instead of a table")
-    .action(async (terms: string[], options: { json?: boolean }) => {
+    .action(async (terms: string[], options: { tag?: string[]; json?: boolean }) => {
       const store = getStore();
-      const hits = search(store.all(), terms);
+      const candidates = store.list({ tags: parseTags(options.tag) });
+      const hits = search(candidates, terms);
       if (options.json) {
         writeJson(hits);
         return;

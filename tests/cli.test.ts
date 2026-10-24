@@ -191,6 +191,15 @@ describe("main() CLI flows", () => {
     expect(out).toContain("docker cleanup");
   });
 
+  it("search --tag narrows results by tags", async () => {
+    await capture(() => main(["add", "docker cleanup", "docker prune", "-t", "docker"]));
+    await capture(() => main(["add", "docker in prod", "kubectl", "-t", "docker", "prod"]));
+    const { code, out } = await capture(() => main(["search", "docker", "-t", "prod"]));
+    expect(code).toBe(0);
+    expect(out).toContain("docker in prod");
+    expect(out).not.toContain("docker cleanup");
+  });
+
   it("related lists snippets sharing tags", async () => {
     await capture(() => main(["add", "one", "c1", "-t", "shared"]));
     await capture(() => main(["add", "two", "c2", "-t", "shared", "other"]));
