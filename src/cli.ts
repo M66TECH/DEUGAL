@@ -20,6 +20,7 @@ import {
   printSuccess,
   printTags,
 } from "./ui/output.js";
+import { setColorEnabled } from "./ui/color.js";
 
 type PkgInfo = { version: string };
 const require = createRequire(import.meta.url);
@@ -113,9 +114,15 @@ function buildProgram(deps: MainDeps): Command {
       "Local-first snippet manager for the terminal. Store, search and reuse code snippets without leaving your shell.",
     )
     .version(pkg.version, "-V, --version", "output the version number")
+    .option("--no-color", "disable colored output (also honors NO_COLOR)")
     .showHelpAfterError('(run "deugal --help" for usage)')
     .showSuggestionAfterError()
     .exitOverride();
+
+  program.hook("preAction", (thisCommand) => {
+    const opts = thisCommand.opts() as { color?: boolean };
+    setColorEnabled(opts.color !== false);
+  });
 
   const getStore = (): SnippetStore => {
     if (deps.store) return deps.store;
