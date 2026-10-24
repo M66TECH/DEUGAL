@@ -142,6 +142,38 @@ describe("main() CLI flows", () => {
     expect(store().all()[0]!.useCount).toBe(1);
   });
 
+  it("tag rename renames a tag on every snippet", async () => {
+    await capture(() => main(["add", "one", "1", "-t", "kubernets"]));
+    await capture(() => main(["add", "two", "2", "-t", "kubernets", "ops"]));
+    expect(await main(["tag", "rename", "kubernets", "k8s"])).toBe(0);
+    const all = store().all();
+    expect(all.find((s) => s.title === "one")?.tags).toEqual(["k8s"]);
+    expect(all.find((s) => s.title === "two")?.tags).toEqual(["k8s", "ops"]);
+    expect(await main(["tag", "rename", "nothing", "x"])).toBe(0);
+  });
+
+  it("candidates lists command names and matching ids", async () => {
+    await capture(() => main(["add", "list files", "ls -la"]));
+    const id = idByTitle("list files");
+    const { out: empty } = await capture(() => main(["candidates"]));
+    expect(empty).toContain("search");
+    const { out: partial } = await capture(() => main(["candidates", id.slice(0, 3)]));
+    expect(partial).toContain("list files");
+    const { out: title } = await capture(() => main(["candidates", "list fi"]));
+    expect(title).toContain(id);
+  });
+
+  it("completions prints a script per shell and rejects the rest", async () => {
+    const bash = await capture(() => main(["completions", "bash"]));
+    expect(bash.code).toBe(0);
+    expect(bash.out).toContain("complete -F _deugal_complete deugal");
+    const ps = await capture(() => main(["completions", "powershell"]));
+    expect(ps.out).toContain("Register-ArgumentCompleter");
+    const zsh = await capture(() => main(["completions", "zsh"]));
+    expect(zsh.out).toContain("#compdef deugal");
+    expect(await main(["completions", "fish"])).toBe(1);
+  });
+
   it("config set, get and reset persist preferences", async () => {
     expect(await main(["config", "set", "sort", "alpha"])).toBe(0);
     expect(await main(["config", "set", "limit", "7"])).toBe(0);

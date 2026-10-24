@@ -302,6 +302,33 @@ describe("SnippetStore.setPinned", () => {
   });
 });
 
+describe("SnippetStore.renameTag", () => {
+  it("renames a tag everywhere and merges duplicates", () => {
+    const store = makeStore();
+    store.add({ title: "a", content: "1", tags: ["old", "keep"] });
+    store.add({ title: "b", content: "2", tags: ["OLD"] });
+    store.add({ title: "c", content: "3", tags: ["new", "keep"] });
+
+    const result = store.renameTag("OLD", "new");
+    expect(result).toEqual({ renamed: 2, tag: "new" });
+    expect(store.all()[0]?.tags).toEqual(["new", "keep"]);
+    expect(store.all()[1]?.tags).toEqual(["new"]);
+    expect(store.tagCounts().find((t) => t.tag === "old")).toBeUndefined();
+  });
+
+  it("reports zero renames for unknown tags", () => {
+    const store = makeStore();
+    store.add({ title: "a", content: "1", tags: ["x"] });
+    expect(store.renameTag("zzz", "new").renamed).toBe(0);
+  });
+
+  it("rejects empty tag names", () => {
+    const store = makeStore();
+    expect(() => store.renameTag("", "new")).toThrow(StoreError);
+    expect(() => store.renameTag("old", "  ")).toThrow(StoreError);
+  });
+});
+
 describe("SnippetStore.tagCounts", () => {
   it("counts and sorts tags", () => {
     const store = makeStore();

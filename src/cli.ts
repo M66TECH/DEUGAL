@@ -102,6 +102,54 @@ function writeJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+const COMPLETION_SCRIPTS: Record<"bash" | "zsh" | "powershell", string> = {
+  bash: `
+_deugal_complete() {
+  local candidates IFS=$'\\n'
+  candidates=$(deugal candidates "\${COMP_WORDS[COMP_CWORD]}" 2>/dev/null)
+  local words=()
+  while IFS= read -r line; do
+    words+=("\${line%%$'\\t'*}")
+  done <<< "$candidates"
+  if [ "$#" -eq 0 ]; then
+    words+=("add list recent search related show use edit rm pin unpin tag tags export import recover stats config help completions")
+  fi
+  COMPREPLY=($(compgen -W "\${words[*]:-}" -- "\${COMP_WORDS[COMP_CWORD]}"))
+}
+complete -F _deugal_complete deugal
+`,
+  zsh: `
+#compdef deugal
+_deugal() {
+  local -a candidates
+  local line part word="\${words[CURRENT]}"
+  candidates=()
+  while IFS=$'\\t' read -r id label; do
+    candidates+=("\${id}:\${label}")
+  done < <(deugal candidates "$word" 2>/dev/null)
+  if [ "$#candidates" -eq 0 ]; then
+    _describe "command" candidates
+    return
+  fi
+  _describe -t snippets "snippet" candidates
+}
+compdef _deugal deugal
+`,
+  powershell: `
+Register-ArgumentCompleter -CommandName deugal -Native -ScriptBlock {
+  param($wordToComplete, $commandAst, $cursorPosition)
+  $candidates = deugal candidates $wordToComplete 2>$null
+  if (-not $candidates) {
+    $candidates = "add list recent search related show use edit rm pin unpin tag tags export import recover stats config help completions"
+  }
+  $candidates | ForEach-Object {
+    $id = ($_ -split "\`t")[0]
+    [System.Management.Automation.CompletionResult]::new($id, $id, 'ParameterValue', $id)
+  }
+}
+`,
+};
+
 function buildProgram(deps: MainDeps): Command {
   const program = new Command();
   program
@@ -302,6 +350,49 @@ function buildProgram(deps: MainDeps): Command {
       const store = getStore();
       const updated = store.setPinned(id, false);
       printSuccess(`Unpinned ${updated.id}  ${updated.title}`);
+    });
+
+  const COMMAND_NAMES = [
+    "add", "list", "recent", "search", "related", "show", "use", "edit", "rm",
+    "pin", "unpin", "tag", "tags", "export", "import", "recover", "stats", "config",
+    "help",
+  ];
+
+  const candidatesCmd = new Command("candidates")
+    .argument("[partial]")
+    .description("print completion candidates: command names and matching snippet ids")
+    .action(async (partial: string | undefined) => {
+      const store = getStore();
+      const prefix = (partial ?? "").trim().toLowerCase();
+      const lines: string[] = [];
+      if (prefix.length === 0) {
+        for (const name of COMMAND_NAMES) lines.push(`${name}\t${name}`);
+      } else {
+        for (const snippet of store.all()) {
+          const idMatch = snippet.id.startsWith(prefix);
+          const titleLower = snippet.title.toLowerCase();
+          const titleMatch = titleLower.includes(prefix) && prefix.length >= 2;
+          if (!idMatch && !titleMatch) continue;
+          const label = snippet.title.replace(/\s+/g, " ").slice(0, 60);
+          lines.push(`${snippet.id}\t${label}`);
+        }
+      }
+      for (const line of lines.slice(0, 30)) {
+        process.stdout.write(`${line}\n`);
+      }
+    });
+  program.addCommand(candidatesCmd);
+
+  program
+    .command("completions <shell>")
+    .description("print a completion script for bash, zsh or powershell")
+    .action(async (shell: "bash" | "zsh" | "powershell") => {
+      const script = COMPLETION_SCRIPTS[shell];
+      if (!script) {
+        throw new StoreError(`Unsupported shell "${String(shell)}". Use bash, zsh or powershell.`, "invalid");
+      }
+      process.stdout.write(`${script.trim()}\n`);
+      printInfoLine(`Install it for your ${shell} session, then restart your shell.`);
     });
 
   program
@@ -579,6 +670,18 @@ function buildProgram(deps: MainDeps): Command {
       printSuccess("Config reset.");
     });
 
+  tag
+    .command("rename <old-tag> <new-tag>")
+    .description("rename a tag on every snippet that uses it")
+    .action(async (oldTag: string, newTag: string) => {
+      const store = getStore();
+      const result = store.renameTag(oldTag, newTag);
+      if (result.renamed === 0) {
+        printInfoLine(`No snippet uses the tag "${oldTag}".`);
+        return;
+      }
+      printSuccess(`Renamed "${oldTag}" to "${result.tag}" on ${result.renamed} snippet(s)`);
+    });
 
   return program;
 }
