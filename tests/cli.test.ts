@@ -142,6 +142,36 @@ describe("main() CLI flows", () => {
     expect(store().all()[0]!.useCount).toBe(1);
   });
 
+  it("config set, get and reset persist preferences", async () => {
+    expect(await main(["config", "set", "sort", "alpha"])).toBe(0);
+    expect(await main(["config", "set", "limit", "7"])).toBe(0);
+    expect(await main(["config", "set", "editor", "notepad"])).toBe(0);
+    const { code, out } = await capture(() => main(["config"]));
+    expect(code).toBe(0);
+    expect(out).toContain("sort:    alpha");
+    expect(out).toContain("limit:   7");
+    expect(out).toContain("editor:  notepad");
+    expect(await main(["config", "set", "nope", "1"])).toBe(1);
+    expect(await main(["config", "set", "limit", "zero"])).toBe(1);
+    expect(await main(["config", "reset"])).toBe(0);
+    const { out: after } = await capture(() => main(["config"]));
+    expect(after).toContain("(default: recent)");
+  });
+
+  it("list applies the configured sort and limit", async () => {
+    await capture(() => main(["add", "aaa", "1"]));
+    await capture(() => main(["add", "bbb", "2"]));
+    await capture(() => main(["add", "ccc", "3"]));
+    expect(await main(["config", "set", "sort", "alpha"])).toBe(0);
+    expect(await main(["config", "set", "limit", "2"])).toBe(0);
+    const { out } = await capture(() => main(["list"]));
+    expect(out).toContain("aaa");
+    expect(out).toContain("bbb");
+    expect(out).not.toContain("ccc");
+    const { out: forced } = await capture(() => main(["list", "--sort", "recent", "--limit", "10"]));
+    expect(forced).toContain("ccc");
+  });
+
   it("recover lists and restores backups", async () => {
     await capture(() => main(["add", "keep me", "good"]));
     await capture(() => main(["add", "second", "still good"]));
