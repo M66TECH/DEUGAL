@@ -174,6 +174,18 @@ describe("main() CLI flows", () => {
     expect(await main(["completions", "fish"])).toBe(1);
   });
 
+  it("config color never removes ANSI codes from output", async () => {
+    const { out: before } = await capture(() => main(["add", "colorful", "snippet", "--json"]));
+    expect(before).not.toContain("\x1b[");
+    expect(await main(["config", "set", "color", "never"])).toBe(0);
+    const { out: after } = await capture(() => main(["list"]));
+    expect(after).not.toContain("\x1b[");
+    expect(await main(["config", "set", "color", "always"])).toBe(0);
+    const { out: forced } = await capture(() => main(["list"]));
+    expect(forced).toContain("\x1b[");
+    expect(await main(["config", "reset"])).toBe(0);
+  });
+
   it("config set, get and reset persist preferences", async () => {
     expect(await main(["config", "set", "sort", "alpha"])).toBe(0);
     expect(await main(["config", "set", "limit", "7"])).toBe(0);

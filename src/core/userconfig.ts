@@ -4,16 +4,20 @@ import { errorMessage, StoreError } from "./errors.js";
 import { randomId } from "./id.js";
 import type { SortMode } from "./types.js";
 
+export type ColorMode = "auto" | "always" | "never";
+
 export interface DeugalUserConfig {
   editor?: string;
   sort?: SortMode;
   limit?: number;
+  color?: ColorMode;
 }
 
 export type ConfigKey = keyof DeugalUserConfig;
 
-export const CONFIG_KEYS: ConfigKey[] = ["editor", "sort", "limit"];
+export const CONFIG_KEYS: ConfigKey[] = ["editor", "sort", "limit", "color"];
 const SORT_MODES: SortMode[] = ["recent", "created", "used", "alpha"];
+const COLOR_MODES: ColorMode[] = ["auto", "always", "never"];
 
 export function emptyUserConfig(): DeugalUserConfig {
   return {};
@@ -49,6 +53,9 @@ export function loadUserConfig(dataDir: string): DeugalUserConfig {
   }
   if (typeof record.limit === "number" && Number.isFinite(record.limit) && record.limit >= 1) {
     config.limit = Math.trunc(record.limit);
+  }
+  if (typeof record.color === "string" && COLOR_MODES.includes(record.color as ColorMode)) {
+    config.color = record.color as ColorMode;
   }
   return config;
 }
@@ -87,6 +94,14 @@ export function applyConfigPatch(
       throw new StoreError(`sort must be one of: ${SORT_MODES.join(", ")}`, "invalid");
     }
     next.sort = sort as SortMode;
+    return next;
+  }
+  if (key === "color") {
+    const color = rawValue.trim().toLowerCase();
+    if (!COLOR_MODES.includes(color as ColorMode)) {
+      throw new StoreError(`color must be one of: ${COLOR_MODES.join(", ")}`, "invalid");
+    }
+    next.color = color as ColorMode;
     return next;
   }
   const limit = Number.parseInt(rawValue, 10);

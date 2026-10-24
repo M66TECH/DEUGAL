@@ -65,6 +65,7 @@ describe("applyConfigPatch", () => {
     expect(applyConfigPatch({}, "sort", "ALPHA")).toEqual({ sort: "alpha" });
     expect(applyConfigPatch({}, "limit", "12")).toEqual({ limit: 12 });
     expect(applyConfigPatch({ limit: 3 }, "limit", "9")).toEqual({ limit: 9 });
+    expect(applyConfigPatch({}, "color", "NEVER")).toEqual({ color: "never" });
   });
 
   it("rejects invalid values", () => {
@@ -72,6 +73,7 @@ describe("applyConfigPatch", () => {
     expect(() => applyConfigPatch({}, "sort", "random")).toThrow(StoreError);
     expect(() => applyConfigPatch({}, "limit", "zero")).toThrow(StoreError);
     expect(() => applyConfigPatch({}, "limit", "-2")).toThrow(StoreError);
+    expect(() => applyConfigPatch({}, "color", "bright")).toThrow(StoreError);
   });
 });
 
