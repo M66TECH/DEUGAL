@@ -6,7 +6,11 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
-      include: ["src/core/**/*.ts"],
+      include: ["src/core/**/*.ts", "src/ui/**/*.ts"],
+      thresholds: {
+        lines: 70,
+        functions: 65,
+      },
     },
   },
 });
