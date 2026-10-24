@@ -263,6 +263,22 @@ export class SnippetStore {
     return items;
   }
 
+  related(idOrPrefix: string): Array<{ snippet: Snippet; shared: string[] }> {
+    const base = this.resolve(idOrPrefix);
+    const result: Array<{ snippet: Snippet; shared: string[] }> = [];
+    for (const snippet of this.load().snippets) {
+      if (snippet.id === base.id) continue;
+      const shared = snippet.tags.filter((t) => base.tags.includes(t));
+      if (shared.length > 0) result.push({ snippet, shared });
+    }
+    return result.sort(
+      (a, b) =>
+        b.shared.length - a.shared.length ||
+        b.snippet.updatedAt.localeCompare(a.snippet.updatedAt) ||
+        a.snippet.title.localeCompare(b.snippet.title),
+    );
+  }
+
   tagCounts(): Array<{ tag: string; count: number }> {
     const counts = new Map<string, number>();
     for (const s of this.load().snippets) {

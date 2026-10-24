@@ -59,13 +59,14 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | --- | --- |
 | `deugal add <title> [content]` | Add a snippet (argument, piped stdin, or `--editor`) |
 | `deugal list` / `ls` | List snippets (`--sort recent\|used\|alpha`, `--tag`, `--limit`, `--json`) |
-| `deugal search <terms...>` | Weighted, case-insensitive search (AND semantics) |
+| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles (AND semantics) |
 | `deugal show <id>` | Metadata + content |
 | `deugal use <id>` | Raw content on stdout, pipe-friendly (`--copy`, `--no-track`) |
 | `deugal edit <id>` | Edit content in `$EDITOR` |
 | `deugal rm <id> --force` | Delete (requires `--force`) |
 | `deugal tag add/rm <id> <tags...>` | Manage tags on a snippet |
 | `deugal tags` | All tags with counts |
+| `deugal related <id>` | Snippets sharing at least one tag with `<id>`, ranked by overlap |
 | `deugal export <file>` | Export to JSON or YAML (format inferred from extension) |
 | `deugal import <file>` | Import (`--overwrite` to replace same-id snippets) |
 | `deugal stats` | Collection stats |

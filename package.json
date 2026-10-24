@@ -1,6 +1,6 @@
 {
   "name": "@m66tech/deugal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deugal — a fast, local-first snippet manager for the terminal.",
   "license": "MIT",
   "author": "M66TECH <https://github.com/M66TECH>",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { search } from "../src/core/search.js";
+import { isSubsequence, search } from "../src/core/search.js";
 import type { Snippet } from "../src/core/types.js";
 
 function snippet(overrides: Partial<Snippet> & { id: string; title: string }): Snippet {
@@ -81,5 +81,26 @@ describe("search", () => {
   it("returns no hits for empty terms", () => {
     expect(search(corpus, [])).toEqual([]);
     expect(search(corpus, ["   "])).toEqual([]);
+  });
+
+  it("fuzzy-matches title subsequences as fallback", () => {
+    const hits = search(corpus, ["grst"]);
+    expect(hits.map((h) => h.snippet.id)).toContain("gitreseth");
+    expect(hits[0]?.where).toContain("title-fuzzy");
+    expect(search(corpus, ["zzqq"])).toEqual([]);
+  });
+
+  it("does not fuzzy-match terms shorter than 3 characters", () => {
+    const corpus2 = [snippet({ id: "aaaa", title: "abc", content: "def" })];
+    expect(search(corpus2, ["ca"])).toEqual([]);
+  });
+});
+
+describe("isSubsequence", () => {
+  it("checks ordered character subsequences", () => {
+    expect(isSubsequence("grst", "git reset hard")).toBe(true);
+    expect(isSubsequence("tx", "git reset")).toBe(false);
+    expect(isSubsequence("", "anything")).toBe(false);
+    expect(isSubsequence("toolongneedle", "short")).toBe(false);
   });
 });

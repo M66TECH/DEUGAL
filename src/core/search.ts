@@ -14,6 +14,7 @@ interface Weights {
   description: number;
   language: number;
   content: number;
+  titleFuzzy: number;
 }
 
 const WEIGHTS: Weights = {
@@ -24,7 +25,21 @@ const WEIGHTS: Weights = {
   description: 15,
   language: 10,
   content: 5,
+  titleFuzzy: 8,
 };
+
+export function isSubsequence(needle: string, haystack: string): boolean {
+  if (needle.length === 0) return false;
+  if (needle.length > haystack.length) return false;
+  let index = 0;
+  for (const char of haystack) {
+    if (char === needle[index]) {
+      index += 1;
+      if (index === needle.length) return true;
+    }
+  }
+  return false;
+}
 
 function matchTerm(snippet: Snippet, term: string): string[] {
   const where: string[] = [];
@@ -40,6 +55,9 @@ function matchTerm(snippet: Snippet, term: string): string[] {
   if (snippet.description?.toLowerCase().includes(term)) where.push("description");
   if (snippet.language?.toLowerCase().includes(term)) where.push("language");
   if (snippet.content.toLowerCase().includes(term)) where.push("content");
+  if (where.length === 0 && term.length >= 3 && isSubsequence(term, snippet.title.toLowerCase())) {
+    where.push("title-fuzzy");
+  }
   return where;
 }
 
@@ -67,6 +85,9 @@ function scoreWhere(where: string[]): number {
         break;
       case "content":
         score += WEIGHTS.content;
+        break;
+      case "title-fuzzy":
+        score += WEIGHTS.titleFuzzy;
         break;
     }
   }

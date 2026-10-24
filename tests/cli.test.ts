@@ -27,6 +27,12 @@ function store(): SnippetStore {
   return new SnippetStore(storeFile);
 }
 
+function idByTitle(title: string): string {
+  const found = store().all().find((s) => s.title === title);
+  if (!found) throw new Error(`test setup error: no snippet titled "${title}"`);
+  return found.id;
+}
+
 async function capture(run: () => Promise<number>): Promise<{ code: number; out: string }> {
   const chunks: string[] = [];
   const original = process.stdout.write.bind(process.stdout);
@@ -150,6 +156,34 @@ describe("main() CLI flows", () => {
     const { code, out } = await capture(() => main(["search", "k8s"]));
     expect(code).toBe(0);
     expect(out).toContain("kubernetes apply");
+  });
+
+  it("find is an alias of search and fuzzy matches", async () => {
+    await capture(() => main(["add", "docker cleanup", "docker system prune -af"]));
+    const { code, out } = await capture(() => main(["find", "dkcln"]));
+    expect(code).toBe(0);
+    expect(out).toContain("docker cleanup");
+  });
+
+  it("related lists snippets sharing tags", async () => {
+    await capture(() => main(["add", "one", "c1", "-t", "shared"]));
+    await capture(() => main(["add", "two", "c2", "-t", "shared", "other"]));
+    const id = idByTitle("one");
+    const { code, out } = await capture(() => main(["related", id]));
+    expect(code).toBe(0);
+    expect(out).toContain("two");
+    expect(out).toContain("1 related snippet(s)");
+  });
+
+  it("related json output contains the shared tags", async () => {
+    await capture(() => main(["add", "one", "c1", "-t", "alpha"]));
+    await capture(() => main(["add", "two", "c2", "-t", "alpha"]));
+    const id = idByTitle("one");
+    const { code, out } = await capture(() => main(["related", id, "--json"]));
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out) as Array<{ snippet: { title: string }; shared: string[] }>;
+    expect(parsed[0]!.snippet.title).toBe("two");
+    expect(parsed[0]!.shared).toEqual(["alpha"]);
   });
 
   it("export then import round trip preserves snippets", async () => {

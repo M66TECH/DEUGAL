@@ -203,6 +203,36 @@ describe("SnippetStore.list", () => {
   });
 });
 
+describe("SnippetStore.related", () => {
+  it("returns snippets sharing tags, sorted by shared count", () => {
+    const store = makeStore();
+    const a = store.add({ title: "A", content: "1", tags: ["git", "linux"] });
+    const b = store.add({ title: "B", content: "2", tags: ["git"] });
+    const c = store.add({ title: "C", content: "3", tags: ["git", "linux", "termux"] });
+    store.add({ title: "D", content: "4", tags: ["unrelated"] });
+    const related = store.related(a.id);
+    expect(related.map((r) => r.snippet.id)).toEqual([c.id, b.id]);
+    expect(related[0]!.shared).toEqual(["git", "linux"]);
+    expect(related[1]!.shared).toEqual(["git"]);
+  });
+
+  it("resolves prefixes and excludes the base snippet", () => {
+    const store = makeStore();
+    const a = store.add({ title: "A", content: "1", tags: ["x"] });
+    store.add({ title: "B", content: "2", tags: ["x"] });
+    const related = store.related(a.id.slice(0, 3));
+    expect(related).toHaveLength(1);
+    expect(related.every((r) => r.snippet.id !== a.id)).toBe(true);
+  });
+
+  it("returns empty when nothing shares tags", () => {
+    const store = makeStore();
+    const a = store.add({ title: "A", content: "1", tags: ["x"] });
+    store.add({ title: "B", content: "2", tags: ["y"] });
+    expect(store.related(a.id)).toEqual([]);
+  });
+});
+
 describe("SnippetStore.tagCounts", () => {
   it("counts and sorts tags", () => {
     const store = makeStore();

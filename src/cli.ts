@@ -207,7 +207,8 @@ function buildProgram(deps: MainDeps): Command {
 
   program
     .command("search <terms...>")
-    .description("search snippets by title, tags, description, language or content")
+    .alias("find")
+    .description("search snippets by title, tags, description, language or content (fuzzy on titles)")
     .option("--json", "print JSON instead of a table")
     .action(async (terms: string[], options: { json?: boolean }) => {
       const store = getStore();
@@ -222,6 +223,28 @@ function buildProgram(deps: MainDeps): Command {
       }
       printList(hits.map((h) => h.snippet), "recent");
       printInfoLine(`${hits.length} match(es)`);
+    });
+
+  program
+    .command("related <id>")
+    .description("list snippets that share at least one tag with the given snippet")
+    .option("--json", "print JSON")
+    .action(async (id: string, options: { json?: boolean }) => {
+      const store = getStore();
+      const related = store.related(id);
+      if (options.json) {
+        writeJson(related);
+        return;
+      }
+      if (related.length === 0) {
+        printInfoLine(`No snippet shares a tag with "${id}".`);
+        return;
+      }
+      printList(related.map((r) => r.snippet), "recent");
+      for (const { snippet, shared } of related) {
+        printInfoLine(`  ${snippet.id}: ${shared.join(", ")}`);
+      }
+      printInfoLine(`${related.length} related snippet(s)`);
     });
 
   program
