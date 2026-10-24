@@ -46,6 +46,14 @@ describe("SnippetStore.add", () => {
     expect(() => store.add({ title: "x", content: "  ", tags: [] })).toThrow(StoreError);
   });
 
+  it("collapses newlines and repeated spaces in titles", () => {
+    const store = makeStore();
+    const created = store.add({ title: "multi\nline   weird\ttitle", content: "x", tags: [] });
+    expect(created.title).toBe("multi line weird title");
+    const updated = store.update(created.id, { title: "clean     title\nfrom update" });
+    expect(updated.title).toBe("clean title from update");
+  });
+
   it("normalizes and dedupes tags", () => {
     const store = makeStore();
     const snippet = store.add({ title: "a", content: "b", tags: ["Git", "git", "  GIT  ", ""] });
