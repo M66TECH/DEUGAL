@@ -580,6 +580,41 @@ function buildProgram(deps: MainDeps): Command {
     });
 
   program
+    .command("dedupe")
+    .description("remove snippets with identical content, keeping the most used of each group")
+    .option("--dry-run", "show what would be removed without saving")
+    .action(async (options: { dryRun?: boolean }) => {
+      const store = getStore();
+      if (options.dryRun) {
+        const data = store.all();
+        const seen = new Map<string, number>();
+        let potential = 0;
+        for (const s of data) {
+          const count = seen.get(s.content) ?? 0;
+          seen.set(s.content, count + 1);
+        }
+        for (const count of seen.values()) {
+          if (count > 1) potential += count - 1;
+        }
+        if (potential === 0) {
+          printInfoLine("No duplicate content found.");
+          return;
+        }
+        printInfoLine(`${potential} snippet(s) would be removed. Run without --dry-run to apply.`);
+        return;
+      }
+      const result = store.dedupe();
+      if (result.removed.length === 0) {
+        printInfoLine("No duplicate content found.");
+        return;
+      }
+      for (const removed of result.removed) {
+        printInfoLine(`  removed: ${removed.id}  ${removed.title}`);
+      }
+      printSuccess(`Removed ${result.removed.length} duplicate(s). ${result.kept} snippet(s) remain.`);
+    });
+
+  program
     .command("recover")
     .description("list the rotating backups of the store, or restore one with --from")
     .option("--from <n>", "restore from backup number n (1 = most recent)", Number.parseInt)

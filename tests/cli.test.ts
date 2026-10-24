@@ -216,6 +216,21 @@ describe("main() CLI flows", () => {
     expect(forced).toContain("ccc");
   });
 
+  it("dedupe removes duplicates with dry-run preview", async () => {
+    await capture(() => main(["add", "copy one", "same content"]));
+    await capture(() => main(["add", "copy two", "same content"]));
+    await capture(() => main(["add", "different", "other"]));
+    const { out: dry } = await capture(() => main(["dedupe", "--dry-run"]));
+    expect(dry).toContain("1 snippet(s) would be removed");
+    expect(store().size()).toBe(3);
+    const { out: applied } = await capture(() => main(["dedupe"]));
+    expect(applied).toContain("copy two");
+    expect(applied).toContain("Removed 1 duplicate(s)");
+    expect(store().size()).toBe(2);
+    const { out: again } = await capture(() => main(["dedupe"]));
+    expect(again).toContain("No duplicate content found");
+  });
+
   it("recover lists and restores backups", async () => {
     await capture(() => main(["add", "keep me", "good"]));
     await capture(() => main(["add", "second", "still good"]));

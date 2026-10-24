@@ -317,6 +317,36 @@ export class SnippetStore {
     );
   }
 
+  dedupe(): { removed: Snippet[]; kept: number } {
+    const data = this.load();
+    const best = new Map<string, Snippet>();
+    const others = new Map<string, Snippet[]>();
+    for (const snippet of data.snippets) {
+      const group = best.get(snippet.content);
+      if (group === undefined) {
+        best.set(snippet.content, snippet);
+        others.set(snippet.content, []);
+        continue;
+      }
+      const challenger = snippet;
+      const winnerIsGroup = group.useCount > challenger.useCount ||
+        (group.useCount === challenger.useCount && group.createdAt <= challenger.createdAt);
+      if (winnerIsGroup) {
+        others.get(snippet.content)!.push(challenger);
+      } else {
+        others.get(group.content)!.push(group);
+        best.set(snippet.content, challenger);
+      }
+    }
+    const removed: Snippet[] = [];
+    for (const list of others.values()) removed.push(...list);
+    if (removed.length === 0) return { removed: [], kept: data.snippets.length };
+    const keepers = new Set([...best.values()].map((s) => s.id));
+    data.snippets = data.snippets.filter((s) => keepers.has(s.id));
+    this.save(data);
+    return { removed, kept: data.snippets.length };
+  }
+
   backupFiles(): Array<{ file: string; index: number; sizeBytes: number; modifiedAt: Date }> {
     const result: Array<{ file: string; index: number; sizeBytes: number; modifiedAt: Date }> = [];
     for (let i = 1; i <= MAX_BACKUPS; i++) {
