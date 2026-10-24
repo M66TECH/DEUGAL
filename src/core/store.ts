@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomId } from "./id.js";
 import { errorMessage, StoreError } from "./errors.js";
@@ -12,6 +12,7 @@ import type {
 } from "./types.js";
 
 const DATA_VERSION = 1;
+const MAX_BACKUPS = 3;
 
 export { StoreError } from "./errors.js";
 
@@ -109,11 +110,25 @@ export class SnippetStore {
     return { version: DATA_VERSION, snippets };
   }
 
+  private rotateBackups(): void {
+    if (!existsSync(this.file)) return;
+    try {
+      for (let i = MAX_BACKUPS - 1; i >= 1; i--) {
+        const source = `${this.file}.bak${i}`;
+        if (existsSync(source)) renameSync(source, `${this.file}.bak${i + 1}`);
+      }
+      copyFileSync(this.file, `${this.file}.bak1`);
+    } catch {
+      return;
+    }
+  }
+
   private save(data: StoreData): void {
     const dir = path.dirname(this.file);
     const tmp = `${this.file}.${process.pid}.${randomId(6)}.tmp`;
     try {
       mkdirSync(dir, { recursive: true });
+      this.rotateBackups();
       writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, "utf8");
       renameSync(tmp, this.file);
     } catch (err) {
