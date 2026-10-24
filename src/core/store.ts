@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomId } from "./id.js";
 import { errorMessage, StoreError } from "./errors.js";
@@ -311,6 +311,33 @@ export class SnippetStore {
         b.snippet.updatedAt.localeCompare(a.snippet.updatedAt) ||
         a.snippet.title.localeCompare(b.snippet.title),
     );
+  }
+
+  backupFiles(): Array<{ file: string; index: number; sizeBytes: number; modifiedAt: Date }> {
+    const result: Array<{ file: string; index: number; sizeBytes: number; modifiedAt: Date }> = [];
+    for (let i = 1; i <= MAX_BACKUPS; i++) {
+      const file = `${this.file}.bak${i}`;
+      if (!existsSync(file)) continue;
+      const stats = statSync(file);
+      result.push({ file, index: i, sizeBytes: stats.size, modifiedAt: stats.mtime });
+    }
+    return result;
+  }
+
+  restoreBackup(index = 1): string {
+    const source = `${this.file}.bak${index}`;
+    if (!existsSync(source)) {
+      throw new StoreError(`No backup found at ${source}. Run "deugal recover" to list backups.`, "not-found");
+    }
+    try {
+      if (existsSync(this.file)) {
+        copyFileSync(this.file, `${this.file}.pre-recover`);
+      }
+      copyFileSync(source, this.file);
+    } catch (err) {
+      throw new StoreError(`Cannot restore backup ${source}: ${errorMessage(err)}`, "io");
+    }
+    return source;
   }
 
   tagCounts(): Array<{ tag: string; count: number }> {
