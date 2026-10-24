@@ -19,6 +19,7 @@ import { editInEditor } from "./core/editor.js";
 import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
+import { setRemote, status as syncStatus, sync } from "./core/sync.js";
 import type { ExportBundle, NewSnippet, SortMode } from "./core/types.js";
 import { dim } from "./ui/color.js";
 import {
@@ -612,6 +613,42 @@ function buildProgram(deps: MainDeps): Command {
         printInfoLine(`  removed: ${removed.id}  ${removed.title}`);
       }
       printSuccess(`Removed ${result.removed.length} duplicate(s). ${result.kept} snippet(s) remain.`);
+    });
+
+  program
+    .command("sync")
+    .description("commit your store to a local git repo (in DEUGAL_HOME) and push if a remote is set")
+    .option("-m, --message <text>", "commit message (default: Sync snippets at <date>)")
+    .option("--remote <url>", "set origin to this git url, then push")
+    .option("--no-push", "commit locally even when a remote exists")
+    .option("--status", "show sync status without changing anything")
+    .action(async (options: { message?: string; remote?: string; push?: boolean; status?: boolean }) => {
+      const dataDir = loadConfig().dataDir;
+      if (options.status) {
+        const state = syncStatus(dataDir);
+        process.stdout.write(`git available: ${state.gitAvailable ? "yes" : "no"}\n`);
+        process.stdout.write(`repo:          ${state.isRepo ? "yes" : "no"}\n`);
+        if (state.remote !== undefined) process.stdout.write(`remote:        ${state.remote}\n`);
+        if (state.lastCommit !== undefined) process.stdout.write(`last commit:   ${state.lastCommit}\n`);
+        process.stdout.write(`uncommitted:   ${state.dirtyCount} file(s)\n`);
+        return;
+      }
+      if (options.remote !== undefined) {
+        setRemote(dataDir, options.remote);
+        printSuccess(`Remote origin set to ${options.remote}`);
+      }
+      const result = sync(dataDir, {
+        message: options.message,
+        push: options.push !== false,
+      });
+      if (result.initialized) printInfoLine("Initialized a git repository in your data directory.");
+      if (result.committed) printSuccess("Committed store changes.");
+      else printInfoLine("Nothing to commit.");
+      if (result.pushed) printSuccess("Pushed to origin.");
+      else if (result.pushError !== undefined) {
+        printError(`Push failed: ${result.pushError}`);
+        printInfoLine("Check your remote and credentials with: deugal sync --status");
+      }
     });
 
   program
