@@ -6,6 +6,14 @@ import { pathToFileURL } from "node:url";
 import { Command, CommanderError, Option } from "commander";
 import { ensureDataDir, loadConfig } from "./core/config.js";
 import { errorMessage, StoreError } from "./core/errors.js";
+import {
+  applyConfigPatch,
+  CONFIG_KEYS,
+  emptyUserConfig,
+  loadUserConfig,
+  saveUserConfig,
+} from "./core/userconfig.js";
+import type { DeugalUserConfig } from "./core/userconfig.js";
 import { copyToClipboard } from "./core/clipboard.js";
 import { editInEditor } from "./core/editor.js";
 import { search } from "./core/search.js";
@@ -119,6 +127,8 @@ function buildProgram(deps: MainDeps): Command {
     return new SnippetStore(config.storeFile);
   };
 
+  const getUserConfig = (): DeugalUserConfig => loadUserConfig(loadConfig().dataDir);
+
   program
     .command("add <title> [content]")
     .description(
@@ -178,17 +188,21 @@ function buildProgram(deps: MainDeps): Command {
     .option("-t, --tag <tags...>", "filter by tags (AND), comma or space separated")
     .option("-l, --lang <lang>", "filter by language hint, e.g. ts, bash, sql")
     .addOption(
-      new Option("-s, --sort <mode>", "sort order")
-        .choices(["recent", "created", "used", "alpha"])
-        .default("recent" as SortMode),
+      new Option("-s, --sort <mode>", "sort order (default: recent, or your config sort)")
+        .choices(["recent", "created", "used", "alpha"]),
     )
     .option("-n, --limit <n>", "show at most n snippets", Number.parseInt)
     .option("--json", "print JSON instead of a table")
     .action(
-      async (options: { tag?: string[]; lang?: string; sort: SortMode; limit?: number; json?: boolean }) => {
+      async (options: { tag?: string[]; lang?: string; sort?: SortMode; limit?: number; json?: boolean }) => {
         const store = getStore();
+        const userConfig = getUserConfig();
         const lang = options.lang?.trim().toLowerCase();
-        let items = store.list({ tags: parseTags(options.tag), sort: options.sort, limit: options.limit });
+        let items = store.list({
+          tags: parseTags(options.tag),
+          sort: options.sort ?? userConfig.sort ?? "recent",
+          limit: options.limit ?? userConfig.limit,
+        });
         if (lang) {
           items = items.filter((s) => s.language === lang);
         }
@@ -200,7 +214,7 @@ function buildProgram(deps: MainDeps): Command {
           printInfoLine('No snippets yet. Add one with: deugal add "my snippet" "content"');
           return;
         }
-        printList(items, options.sort);
+        printList(items, options.sort ?? userConfig.sort ?? "recent");
         printInfoLine(`${items.length} snippet(s)`);
       },
     );
@@ -354,11 +368,12 @@ function buildProgram(deps: MainDeps): Command {
   program
     .command("edit <id>")
     .description("open a snippet's content in your editor and save changes back")
-    .option("-e, --editor <name>", "editor to use (defaults to $EDITOR, notepad or vi)")
+    .option("-e, --editor <name>", "editor to use (defaults to your config editor, $EDITOR, notepad or vi)")
     .action(async (id: string, options: { editor?: string }) => {
       const store = getStore();
+      const userConfig = getUserConfig();
       const snippet = store.resolve(id);
-      const edited = editInEditor(snippet.content, options.editor);
+      const edited = editInEditor(snippet.content, options.editor ?? userConfig.editor);
       if (edited.trim() === snippet.content.trim() || !edited.trim()) {
         printInfoLine("No changes.");
         return;
@@ -519,14 +534,51 @@ function buildProgram(deps: MainDeps): Command {
       }
     });
 
-  program
+  const configCmd = program
     .command("config")
-    .description("show where deugal stores your data")
-    .action(async () => {
-      const config = loadConfig();
-      const store = getStore();
-      process.stdout.write(`data dir: ${config.dataDir}\nstore file: ${store.file}\n`);
+    .description("show or change your preferences (editor, sort, limit)")
+    .option("--json", "print JSON");
+
+  configCmd.action(async (options: { json?: boolean }) => {
+    const store = getStore();
+    const userConfig = getUserConfig();
+    const configFilePath = path.join(loadConfig().dataDir, "config.json");
+    if (options.json) {
+      writeJson({ ...userConfig, path: configFilePath });
+      return;
+    }
+    process.stdout.write(`path:    ${configFilePath}\n`);
+    process.stdout.write(`store:   ${store.file}\n`);
+    process.stdout.write(`editor:  ${userConfig.editor ?? "(default: $EDITOR, notepad or vi)"}\n`);
+    process.stdout.write(`sort:    ${userConfig.sort ?? "(default: recent)"}\n`);
+    process.stdout.write(`limit:   ${String(userConfig.limit ?? "(default: none)")}\n`);
+    process.stdout.write(`snippets: ${store.size()}\n`);
+    printInfoLine("Change with: deugal config set editor|sort|limit <value>");
+    printInfoLine("Reset with: deugal config reset");
+  });
+
+  configCmd
+    .command("set <key> <value>")
+    .description("set a preference: editor (command name), sort (recent|created|used|alpha), limit (int >= 1)")
+    .action(async (key: string, value: string) => {
+      if (!CONFIG_KEYS.includes(key as never)) {
+        throw new StoreError(`Unknown config key "${key}". Valid keys: ${CONFIG_KEYS.join(", ")}`, "invalid");
+      }
+      const dataDir = loadConfig().dataDir;
+      const next = applyConfigPatch(loadUserConfig(dataDir), key as keyof DeugalUserConfig, value);
+      saveUserConfig(dataDir, next);
+      printSuccess(`${key} = ${JSON.stringify(next[key as keyof DeugalUserConfig])}`);
     });
+
+  configCmd
+    .command("reset")
+    .description("remove all saved preferences")
+    .action(async () => {
+      const dataDir = loadConfig().dataDir;
+      saveUserConfig(dataDir, emptyUserConfig());
+      printSuccess("Config reset.");
+    });
+
 
   return program;
 }
