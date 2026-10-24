@@ -37,22 +37,19 @@ export function parseTags(raw: string[] | undefined): string[] {
   return out;
 }
 
-async function readStdin(graceMs = 250, idleMs = 500, maxMs = 5000): Promise<string> {
+async function readStdin(graceMs = 250, maxMs = 5000): Promise<string> {
   const stdin = process.stdin;
   if (stdin.readableEnded) return "";
   return await new Promise<string>((resolve) => {
     const chunks: Buffer[] = [];
     let done = false;
     let graceTimer: NodeJS.Timeout | undefined;
-    let idleTimer: NodeJS.Timeout | undefined;
     let maxTimer: NodeJS.Timeout | undefined;
     const finish = (): void => {
       if (done) return;
       done = true;
       if (graceTimer !== undefined) clearTimeout(graceTimer);
-      if (idleTimer !== undefined) clearTimeout(idleTimer);
       if (maxTimer !== undefined) clearTimeout(maxTimer);
-      stdin.off("readable", onReadable);
       stdin.off("data", onData);
       stdin.off("end", finish);
       stdin.off("error", finish);
@@ -64,21 +61,11 @@ async function readStdin(graceMs = 250, idleMs = 500, maxMs = 5000): Promise<str
         clearTimeout(graceTimer);
         graceTimer = undefined;
       }
-      if (idleTimer !== undefined) clearTimeout(idleTimer);
-      idleTimer = setTimeout(finish, idleMs);
-    };
-    const onReadable = (): void => {
-      let piece: string | Buffer | null = stdin.read();
-      while (piece !== null) {
-        onData(piece);
-        piece = stdin.read();
-      }
     };
     try {
       stdin.on("data", onData);
       stdin.on("end", finish);
       stdin.on("error", finish);
-      stdin.on("readable", onReadable);
       graceTimer = setTimeout(finish, graceMs);
       maxTimer = setTimeout(finish, maxMs);
     } catch {
@@ -399,7 +386,7 @@ function buildProgram(deps: MainDeps): Command {
 
   program
     .command("export <file>")
-    .description("export all snippets to a JSON or YAML file")
+    .description("export all snippets to a JSON or YAML file, or to stdout with -")
     .addOption(
       new Option("-f, --format <format>", "output format (default: inferred from file extension)")
         .choices(["json", "yaml"]),
@@ -408,6 +395,10 @@ function buildProgram(deps: MainDeps): Command {
       const store = getStore();
       const format = options.format ?? inferFormat(file);
       const bundle: ExportBundle = { deugal: TRANSFER_VERSION, exportedAt: new Date().toISOString(), snippets: store.all() };
+      if (file === "-") {
+        process.stdout.write(serializeBundle(bundle, format));
+        return;
+      }
       mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
       writeFileSync(file, serializeBundle(bundle, format), "utf8");
       printSuccess(`Exported ${bundle.snippets.length} snippet(s) to ${file} (${format})`);
@@ -415,7 +406,7 @@ function buildProgram(deps: MainDeps): Command {
 
   program
     .command("import <file>")
-    .description("import snippets from a JSON or YAML file")
+    .description("import snippets from a JSON or YAML file, or from stdin with -")
     .option("--overwrite", "replace existing snippets that have the same id")
     .addOption(
       new Option("-f, --format <format>", "input format (default: inferred from file extension)")
@@ -424,7 +415,7 @@ function buildProgram(deps: MainDeps): Command {
     .action(async (file: string, options: { overwrite?: boolean; format?: "json" | "yaml" }) => {
       const store = getStore();
       const format = options.format ?? inferFormat(file);
-      const text = readFileSync(file, "utf8");
+      const text = file === "-" ? await readStdin() : readFileSync(file, "utf8");
       const incoming = parseBundle(text, format);
       let added = 0;
       let replaced = 0;

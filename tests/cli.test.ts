@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { main, parseTags } from "../src/cli.js";
 import { SnippetStore } from "../src/core/store.js";
@@ -209,6 +210,44 @@ describe("main() CLI flows", () => {
     const parsed = JSON.parse(out) as Array<{ snippet: { title: string }; shared: string[] }>;
     expect(parsed[0]!.snippet.title).toBe("two");
     expect(parsed[0]!.shared).toEqual(["alpha"]);
+  });
+
+  it("export - writes the bundle to stdout", async () => {
+    await capture(() => main(["add", "streamed", "via pipes", "-t", "io"]));
+    const { code, out } = await capture(() => main(["export", "-", "--format", "json"]));
+    expect(code).toBe(0);
+    const bundle = JSON.parse(out) as { deugal: number; snippets: unknown[] };
+    expect(bundle.deugal).toBe(1);
+    expect(bundle.snippets).toHaveLength(1);
+    const { code: yamlCode, out: yamlOut } = await capture(() => main(["export", "-", "-f", "yaml"]));
+    expect(yamlCode).toBe(0);
+    expect(yamlOut).toContain("deugal: 1");
+  });
+
+  it("import - reads the bundle from piped stdin", async (context) => {
+    const distCli = path.join(import.meta.dirname, "..", "dist", "cli.js");
+    if (!existsSync(distCli)) {
+      context.skip();
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(process.execPath, [distCli, "import", "-"], {
+        env: { ...process.env, DEUGAL_HOME: homeDir },
+        stdio: ["pipe", "ignore", "pipe"],
+      });
+      child.stdin!.end('{"snippets":[{"title":"piped import","content":"works"}]}');
+      let stderr = "";
+      child.stderr!.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`import failed: ${stderr}`));
+      });
+    });
+    const imported = store().all().find((s) => s.title === "piped import");
+    expect(imported?.content).toBe("works");
   });
 
   it("export then import round trip preserves snippets", async () => {
