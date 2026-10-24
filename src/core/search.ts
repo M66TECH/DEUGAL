@@ -11,6 +11,7 @@ interface Weights {
   title: number;
   tagExact: number;
   tagPartial: number;
+  tagFuzzy: number;
   description: number;
   language: number;
   content: number;
@@ -22,6 +23,7 @@ const WEIGHTS: Weights = {
   title: 50,
   tagExact: 40,
   tagPartial: 20,
+  tagFuzzy: 6,
   description: 15,
   language: 10,
   content: 5,
@@ -50,7 +52,11 @@ function matchTerm(snippet: Snippet, term: string): string[] {
       where.push("tag");
       break;
     }
-    if (tag.includes(term) && !where.includes("tag")) where.push("tag-partial");
+    if (tag.includes(term)) {
+      if (!where.includes("tag")) where.push("tag-partial");
+    } else if (term.length >= 3 && isSubsequence(term, tag)) {
+      if (!where.includes("tag-fuzzy")) where.push("tag-fuzzy");
+    }
   }
   if (snippet.description?.toLowerCase().includes(term)) where.push("description");
   if (snippet.language?.toLowerCase().includes(term)) where.push("language");
@@ -76,6 +82,9 @@ function scoreWhere(where: string[]): number {
         break;
       case "tag-partial":
         score += WEIGHTS.tagPartial;
+        break;
+      case "tag-fuzzy":
+        score += WEIGHTS.tagFuzzy;
         break;
       case "description":
         score += WEIGHTS.description;

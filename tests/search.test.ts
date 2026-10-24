@@ -90,6 +90,12 @@ describe("search", () => {
     expect(search(corpus, ["zzqq"])).toEqual([]);
   });
 
+  it("fuzzy-matches tag subsequences", () => {
+    const hits = search(corpus, ["pstgrs"]);
+    expect(hits.map((h) => h.snippet.id)).toContain("sqldump");
+    expect(hits.find((h) => h.snippet.id === "sqldump")?.where).toContain("tag-fuzzy");
+  });
+
   it("does not fuzzy-match terms shorter than 3 characters", () => {
     const corpus2 = [snippet({ id: "aaaa", title: "abc", content: "def" })];
     expect(search(corpus2, ["ca"])).toEqual([]);
