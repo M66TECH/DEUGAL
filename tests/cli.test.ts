@@ -1,0 +1,185 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { main, parseTags } from "../src/cli.js";
+import { SnippetStore } from "../src/core/store.js";
+
+let homeDir: string;
+let storeFile: string;
+const savedEnv = { ...process.env };
+
+beforeEach(() => {
+  homeDir = mkdtempSync(path.join(os.tmpdir(), "deugal-cli-"));
+  storeFile = path.join(homeDir, "snippets.json");
+  process.env.DEUGAL_HOME = homeDir;
+});
+
+afterEach(() => {
+  rmSync(homeDir, { recursive: true, force: true });
+  for (const key of Object.keys(process.env)) {
+    if (key in savedEnv) process.env[key] = savedEnv[key];
+    else delete process.env[key];
+  }
+});
+
+function store(): SnippetStore {
+  return new SnippetStore(storeFile);
+}
+
+async function capture(run: () => Promise<number>): Promise<{ code: number; out: string }> {
+  const chunks: string[] = [];
+  const original = process.stdout.write.bind(process.stdout);
+  const patched = ((chunk: unknown): boolean => {
+    chunks.push(typeof chunk === "string" ? chunk : String(chunk));
+    return true;
+  }) as typeof process.stdout.write;
+  process.stdout.write = patched;
+  try {
+    const code = await run();
+    return { code, out: chunks.join("") };
+  } finally {
+    process.stdout.write = original;
+  }
+}
+
+describe("parseTags", () => {
+  it("splits commas, trims, lowercases, dedupes", () => {
+    expect(parseTags(["Git,hooks", "  git ", "TS", ""])).toEqual(["git", "hooks", "ts"]);
+    expect(parseTags(undefined)).toEqual([]);
+  });
+});
+
+describe("main() CLI flows", () => {
+  it("shows version and exits 0", async () => {
+    const { code, out } = await capture(() => main(["--version"]));
+    expect(code).toBe(0);
+    expect(out.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it("add creates a snippet in the configured store", async () => {
+    const { code } = await capture(() =>
+      main(["add", "my snippet", "the content", "-t", "git", "-l", "bash"]),
+    );
+    expect(code).toBe(0);
+    expect(existsSync(storeFile)).toBe(true);
+    const snippet = store().all()[0]!;
+    expect(snippet.title).toBe("my snippet");
+    expect(snippet.content).toBe("the content");
+    expect(snippet.tags).toEqual(["git"]);
+    expect(snippet.language).toBe("bash");
+  });
+
+  it("add fails cleanly when content is missing", async () => {
+    const code = await main(["add", "only a title"]);
+    expect(code).toBe(1);
+  });
+
+  it("add --json prints the created snippet", async () => {
+    const { code, out } = await capture(() => main(["add", "json", "pretty", "--json"]));
+    expect(code).toBe(0);
+    const printed = JSON.parse(out) as { title: string; content: string };
+    expect(printed.title).toBe("json");
+    expect(printed.content).toBe("pretty");
+  });
+
+  it("unknown commands exit 1", async () => {
+    const code = await main(["frobnicate"]);
+    expect(code).toBe(1);
+  });
+
+  it("list prints a table and list --tag filters", async () => {
+    await capture(() => main(["add", "one", "1", "-t", "alpha"]));
+    await capture(() => main(["add", "two", "2", "-t", "beta"]));
+    const { code, out } = await capture(() => main(["list", "--tag", "beta"]));
+    expect(code).toBe(0);
+    expect(out).toContain("two");
+    expect(out).not.toContain(" one ");
+    expect(out).toContain("1 snippet(s)");
+  });
+
+  it("list --json prints the whole collection", async () => {
+    await capture(() => main(["add", "one", "content-uno"]));
+    const { code, out } = await capture(() => main(["list", "--json"]));
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out) as Array<{ title: string }>;
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]!.title).toBe("one");
+  });
+
+  it("show resolves by prefix and errors for unknown ids", async () => {
+    await capture(() => main(["add", "target", "body"]));
+    const id = store().all()[0]!.id;
+    const { code, out } = await capture(() => main(["show", id.slice(0, 3)]));
+    expect(code).toBe(0);
+    expect(out).toContain("target");
+    expect(out).toContain("body");
+    expect(await main(["show", "zzzzzzzz"])).toBe(1);
+  });
+
+  it("use --no-track prints without bumping counter", async () => {
+    await capture(() => main(["add", "piped", "hello world"]));
+    const id = store().all()[0]!.id;
+    const { out } = await capture(() => main(["use", id, "--no-track"]));
+    expect(out).toBe("hello world\n");
+    expect(store().all()[0]!.useCount).toBe(0);
+    await capture(() => main(["use", id]));
+    expect(store().all()[0]!.useCount).toBe(1);
+  });
+
+  it("rm requires --force", async () => {
+    await capture(() => main(["add", "victim", "data"]));
+    const id = store().all()[0]!.id;
+    expect(await main(["rm", id])).toBe(1);
+    expect(store().size()).toBe(1);
+    expect(await main(["rm", id, "--force"])).toBe(0);
+    expect(store().size()).toBe(0);
+  });
+
+  it("tag add and tag rm round trip", async () => {
+    await capture(() => main(["add", "tagged", "c"]));
+    const id = store().all()[0]!.id;
+    expect(await main(["tag", "add", id, "one", "two"])).toBe(0);
+    expect(store().all()[0]!.tags).toEqual(["one", "two"]);
+    expect(await main(["tag", "rm", id, "one"])).toBe(0);
+    expect(store().all()[0]!.tags).toEqual(["two"]);
+  });
+
+  it("search finds matches", async () => {
+    await capture(() => main(["add", "kubernetes apply", "kubectl apply -f .", "-t", "k8s"]));
+    const { code, out } = await capture(() => main(["search", "k8s"]));
+    expect(code).toBe(0);
+    expect(out).toContain("kubernetes apply");
+  });
+
+  it("export then import round trip preserves snippets", async () => {
+    await capture(() => main(["add", "round", "trip", "-t", "rt"]));
+    const exportFile = path.join(homeDir, "out.json");
+    expect(await main(["export", exportFile])).toBe(0);
+    const exported = JSON.parse(readFileSync(exportFile, "utf8")) as { deugal: number; snippets: unknown[] };
+    expect(exported.deugal).toBe(1);
+    expect(exported.snippets).toHaveLength(1);
+
+    const secondHome = mkdtempSync(path.join(os.tmpdir(), "deugal-cli-2-"));
+    try {
+      process.env.DEUGAL_HOME = secondHome;
+      const fresh = new SnippetStore(path.join(secondHome, "snippets.json"));
+      expect(await main(["import", exportFile])).toBe(0);
+      expect(fresh.all()[0]!.title).toBe("round");
+      expect(await main(["import", exportFile])).toBe(0);
+      expect(fresh.size()).toBe(1);
+      expect(await main(["import", exportFile, "--overwrite"])).toBe(0);
+      expect(fresh.size()).toBe(1);
+    } finally {
+      process.env.DEUGAL_HOME = homeDir;
+      rmSync(secondHome, { recursive: true, force: true });
+    }
+  });
+
+  it("commands succeed on an empty store", async () => {
+    expect(await main(["list"])).toBe(0);
+    expect(await main(["tags"])).toBe(0);
+    expect(await main(["stats"])).toBe(0);
+    expect(await main(["search", "anything"])).toBe(0);
+  });
+});
