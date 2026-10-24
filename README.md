@@ -76,6 +76,8 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | `deugal stats` | Collection stats |
 | `deugal config` | Show preferences (`config set editor\|sort\|limit <value>`, `config reset`) |
 | `deugal completions <shell>` | Print a completion script for bash, zsh or powershell |
+| `deugal dedupe [--dry-run]` | Remove snippets with identical content, keep the most used |
+| `deugal sync` | Commit the store to a local git repo (`--remote <url>`, `--message`, `--status`) |
 
 Global flag: `--no-color` disables colored output (the `NO_COLOR` environment variable is honored too). Every command that prints data also accepts `--json` where noted, for scripting.
 
@@ -92,6 +94,19 @@ export DEUGAL_HOME=/path/to/your/dir     # e.g. inside a synced folder
 ```
 
 The store is written atomically (temp file + rename), so a crash mid-write will not corrupt your data.
+
+## Sync your snippets with git
+
+Your whole collection is one JSON file — perfect for version control:
+
+```bash
+deugal sync --init                # local repo in your data directory
+deugal sync                       # commit when something changed
+deugal sync --remote git@github.com:you/snippets.git   # set origin and push
+deugal sync --status              # inspect repo, remote and pending changes
+```
+
+Then on another machine: clone that repo into your `DEUGAL_HOME` (or set the same `--remote` and pull).
 
 ## Backups
 

@@ -2,6 +2,18 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 0.5.0
+
+### Ajouts
+
+- Commande sync: le store est versionne dans un depot git local du dossier de donnees, avec remote optionnel et push.
+- Commande dedupe (avec --dry-run): supprime les doublons de contenu en gardant le plus utilise.
+- Cle de config color (auto, always, never) qui complete l option --no-color.
+
+### Corrections
+
+- Les titres sont reduits a une seule ligne propre a l ajout comme a la modification.
+
 ## 0.4.0
 
 ### Ajouts
