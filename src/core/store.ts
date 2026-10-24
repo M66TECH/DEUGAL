@@ -54,6 +54,8 @@ function compareByMode(a: Snippet, b: Snippet, mode: SortMode): number {
       return a.title.localeCompare(b.title);
     case "used":
       return b.useCount - a.useCount || a.title.localeCompare(b.title);
+    case "created":
+      return b.createdAt.localeCompare(a.createdAt) || a.title.localeCompare(b.title);
     case "recent":
     default:
       return b.updatedAt.localeCompare(a.updatedAt) || a.title.localeCompare(b.title);
