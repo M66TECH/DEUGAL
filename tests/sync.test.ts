@@ -45,13 +45,14 @@ describe("sync module", () => {
 
   it.skipIf(!gitWorks)("keeps a remote url and reports sync status", () => {
     writeFileSync(path.join(dir, "snippets.json"), "{}", "utf8");
-    setRemote(dir, "https://example.com/snippets.git");
+    const fakeRemote = path.join(dir, "remote-inexistant.git");
+    setRemote(dir, fakeRemote);
     const st = status(dir);
-    expect(st.remote).toBe("https://example.com/snippets.git");
+    expect(st.remote).toBe(fakeRemote);
     const pushFailsOnFakeRemote = sync(dir, { push: true });
     expect(pushFailsOnFakeRemote.pushed).toBe(false);
     expect(pushFailsOnFakeRemote.pushError).toBeDefined();
-  });
+  }, 30_000);
 
   it("reports status gracefully outside any repo", () => {
     const st = status(path.join(dir, "nowhere"));
