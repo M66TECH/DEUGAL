@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -255,6 +255,23 @@ describe("main() CLI flows", () => {
     expect(code).toBe(0);
     const entries = JSON.parse(json) as Array<{ message: string }>;
     expect(entries[0]?.message).toBe("point initial");
+  });
+
+  it("doctor reports a healthy setup and flags a corrupted store", async () => {
+    await capture(() => main(["add", "sain", "ok"]));
+    const { code, out } = await capture(() => main(["doctor"]));
+    expect(code).toBe(0);
+    expect(out).toContain("data dir");
+    expect(out).toContain("store");
+    expect(out).toContain("0 error(s)");
+
+    writeFileSync(storeFile, "{corrompu", "utf8");
+    const { out: broken } = await capture(() => main(["doctor"]));
+    expect(broken).toContain("error");
+    const { out: json } = await capture(() => main(["doctor", "--json"]));
+    const parsed = JSON.parse(json) as { ok: boolean; checks: Array<{ status: string }> };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.checks.some((c) => c.status === "error")).toBe(true);
   });
 
   it("recover lists and restores backups", async () => {
