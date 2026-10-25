@@ -2,6 +2,19 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 0.6.0
+
+### Ajouts
+
+- Filtre --since sur list: durees en m, h, d ou w appliquees a la date de modification.
+- Export partiel: export accepte --tag, --lang et --since pour ne sauvegarder qu une partie du store.
+- Commande history: historique git du store apres deugal sync, avec limite et sortie JSON.
+- Commande doctor: diagnostic du node, du dossier de donnees, du store, des sauvegardes, de la config et du depot git.
+
+### Corrections
+
+- Le test de push vers un remote inexistant n attend plus de reponse reseau et ne depasse plus le delai.
+
 ## 0.5.0
 
 ### Ajouts
