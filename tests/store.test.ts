@@ -254,6 +254,23 @@ describe("SnippetStore.list", () => {
     expect(store.list({ limit: 2 })).toHaveLength(2);
     expect(store.list({ limit: -5 })).toHaveLength(0);
   });
+
+  it("filters by updatedSince and createdSince", async () => {
+    const store = makeStore();
+    const old = store.add({ title: "old", content: "1", tags: [] });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const cutoff = Date.now();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const recent = store.add({ title: "recent", content: "2", tags: [] });
+
+    expect(store.list({ updatedSince: cutoff }).map((s) => s.id)).toEqual([recent.id]);
+    expect(store.list({ createdSince: cutoff }).map((s) => s.id)).toEqual([recent.id]);
+
+    store.update(old.id, { content: "touched" });
+    const touched = store.list({ updatedSince: cutoff }).map((s) => s.id);
+    expect(touched).toContain(old.id);
+    expect(store.list({ createdSince: cutoff }).map((s) => s.id)).toEqual([recent.id]);
+  });
 });
 
 describe("SnippetStore.related", () => {
