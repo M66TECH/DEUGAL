@@ -278,6 +278,14 @@ export class SnippetStore {
     if (options.tags && options.tags.length > 0) {
       items = items.filter((s) => options.tags!.every((t) => s.tags.includes(t)));
     }
+    if (options.updatedSince !== undefined) {
+      const since = options.updatedSince;
+      items = items.filter((s) => Date.parse(s.updatedAt) >= since);
+    }
+    if (options.createdSince !== undefined) {
+      const since = options.createdSince;
+      items = items.filter((s) => Date.parse(s.createdAt) >= since);
+    }
     items = [...items].sort((a, b) => compareByMode(a, b, options.sort ?? "recent"));
     if (options.limit !== undefined) {
       const limit = Math.max(0, Math.trunc(options.limit));

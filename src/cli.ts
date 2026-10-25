@@ -19,6 +19,7 @@ import { editInEditor } from "./core/editor.js";
 import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
+import { sinceEpoch } from "./core/period.js";
 import { setRemote, status as syncStatus, sync } from "./core/sync.js";
 import type { ExportBundle, NewSnippet, SortMode } from "./core/types.js";
 import { dim } from "./ui/color.js";
@@ -251,9 +252,17 @@ function buildProgram(deps: MainDeps): Command {
         .choices(["recent", "created", "used", "alpha"]),
     )
     .option("-n, --limit <n>", "show at most n snippets", Number.parseInt)
+    .option("--since <duration>", "only snippets updated in the last Nm, Nh, Nd or Nw")
     .option("--json", "print JSON instead of a table")
     .action(
-      async (options: { tag?: string[]; lang?: string; sort?: SortMode; limit?: number; json?: boolean }) => {
+      async (options: {
+        tag?: string[];
+        lang?: string;
+        sort?: SortMode;
+        limit?: number;
+        since?: string;
+        json?: boolean;
+      }) => {
         const store = getStore();
         const userConfig = getUserConfig();
         const lang = options.lang?.trim().toLowerCase();
@@ -261,6 +270,7 @@ function buildProgram(deps: MainDeps): Command {
           tags: parseTags(options.tag),
           sort: options.sort ?? userConfig.sort ?? "recent",
           limit: options.limit ?? userConfig.limit,
+          updatedSince: options.since !== undefined ? sinceEpoch(options.since) : undefined,
         });
         if (lang) {
           items = items.filter((s) => s.language === lang);

@@ -39,6 +39,8 @@ export interface ListOptions {
   tags?: string[] | undefined;
   sort?: SortMode | undefined;
   limit?: number | undefined;
+  updatedSince?: number | undefined;
+  createdSince?: number | undefined;
 }
 
 export interface ExportBundle {
