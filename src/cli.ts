@@ -20,9 +20,10 @@ import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import { sinceEpoch } from "./core/period.js";
+import { hasErrors, runChecks } from "./core/doctor.js";
 import { history, setRemote, status as syncStatus, sync } from "./core/sync.js";
 import type { ExportBundle, NewSnippet, SortMode } from "./core/types.js";
-import { dim } from "./ui/color.js";
+import { dim, green, red, yellow } from "./ui/color.js";
 import {
   printError,
   printInfoLine,
@@ -699,6 +700,27 @@ function buildProgram(deps: MainDeps): Command {
       for (const entry of entries) {
         process.stdout.write(`${dim(entry.hash)}  ${dim(entry.date.slice(0, 19).replace("T", " "))}  ${entry.message}\n`);
       }
+    });
+
+  program
+    .command("doctor")
+    .description("check the health of your store, config, backups and sync setup")
+    .option("--json", "print JSON")
+    .action(async (options: { json?: boolean }) => {
+      const config = loadConfig();
+      ensureDataDir(config);
+      const checks = runChecks(config);
+      if (options.json) {
+        writeJson({ checks, ok: !hasErrors(checks) });
+        return;
+      }
+      for (const check of checks) {
+        const badge = check.status === "ok" ? green("ok") : check.status === "warn" ? yellow("warn") : red("error");
+        process.stdout.write(`${badge.padEnd(16)} ${dim(check.name.padEnd(12))} ${check.detail}\n`);
+      }
+      printInfoLine(`${checks.filter((c) => c.status === "ok").length} ok, ` +
+        `${checks.filter((c) => c.status === "warn").length} warning(s), ` +
+        `${checks.filter((c) => c.status === "error").length} error(s)`);
     });
 
   program

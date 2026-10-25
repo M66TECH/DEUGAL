@@ -69,6 +69,14 @@ function compareByMode(a: Snippet, b: Snippet, mode: SortMode): number {
   }
 }
 
+export function backupCount(file: string): number {
+  let count = 0;
+  for (let i = 1; i <= MAX_BACKUPS; i++) {
+    if (existsSync(`${file}.bak${i}`)) count += 1;
+  }
+  return count;
+}
+
 export class SnippetStore {
   readonly file: string;
 
