@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { main, parseTags } from "../src/cli.js";
 import { SnippetStore } from "../src/core/store.js";
+import { sync } from "../src/core/sync.js";
 
 let homeDir: string;
 let storeFile: string;
@@ -240,6 +241,20 @@ describe("main() CLI flows", () => {
     expect(out).toContain("fresh entry");
     expect(out).not.toContain(" old entry ");
     expect(await main(["list", "--since", "nope"])).toBe(1);
+  });
+
+  it("history shows nothing before the first sync and entries after it", async () => {
+    const { out: empty } = await capture(() => main(["history"]));
+    expect(empty).toContain("No history yet");
+
+    await capture(() => main(["add", "premier", "contenu"]));
+    sync(homeDir, { message: "point initial" });
+    const { out } = await capture(() => main(["history"]));
+    expect(out).toContain("point initial");
+    const { code, out: json } = await capture(() => main(["history", "--json"]));
+    expect(code).toBe(0);
+    const entries = JSON.parse(json) as Array<{ message: string }>;
+    expect(entries[0]?.message).toBe("point initial");
   });
 
   it("recover lists and restores backups", async () => {

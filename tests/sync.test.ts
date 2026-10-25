@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { gitAvailable, setRemote, status, sync } from "../src/core/sync.js";
+import { gitAvailable, history, setRemote, status, sync } from "../src/core/sync.js";
 import { SnippetStore } from "../src/core/store.js";
 
 let dir: string;
@@ -58,5 +58,26 @@ describe("sync module", () => {
     const st = status(path.join(dir, "nowhere"));
     expect(st.isRepo).toBe(false);
     expect(st.dirtyCount).toBe(0);
+  });
+
+  it.skipIf(!gitWorks)("lists history entries newest first", () => {
+    const store = new SnippetStore(dir + "/snippets.json");
+    store.add({ title: "un", content: "1", tags: [] });
+    sync(dir, { message: "premier point" });
+    store.add({ title: "deux", content: "2", tags: [] });
+    sync(dir, { message: "deuxieme point" });
+
+    const entries = history(dir, 5);
+    expect(entries.length).toBe(2);
+    expect(entries[0]?.message).toBe("deuxieme point");
+    expect(entries[1]?.message).toBe("premier point");
+    expect(entries[0]?.hash).toMatch(/^[0-9a-f]+$/);
+    expect(Date.parse(entries[0]!.date)).not.toBeNaN();
+
+    expect(history(dir, 1)).toHaveLength(1);
+  });
+
+  it("returns no history outside a repo", () => {
+    expect(history(path.join(dir, "nowhere"))).toEqual([]);
   });
 });

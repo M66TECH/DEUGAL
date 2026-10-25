@@ -125,6 +125,30 @@ export function sync(
   return result;
 }
 
+export interface HistoryEntry {
+  hash: string;
+  date: string;
+  message: string;
+}
+
+export function history(dataDir: string, limit = 20): HistoryEntry[] {
+  if (!isRepo(dataDir) || !gitAvailable()) return [];
+  const result = git(dataDir, [
+    "log",
+    `--max-count=${Math.max(1, limit)}`,
+    "--date=iso-strict",
+    "--pretty=format:%h%x09%ad%x09%s",
+  ]);
+  if (!result.ok || !result.output.trim()) return [];
+  const entries: HistoryEntry[] = [];
+  for (const line of result.output.split("\n")) {
+    const [hash, date, ...rest] = line.split("\t");
+    if (hash === undefined || date === undefined) continue;
+    entries.push({ hash, date, message: rest.join("\t") });
+  }
+  return entries;
+}
+
 export function setRemote(dataDir: string, url: string): void {
   if (!gitAvailable()) {
     throw new StoreError("git is not installed or not in PATH. Install it to use deugal sync.", "io");

@@ -20,7 +20,7 @@ import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import { sinceEpoch } from "./core/period.js";
-import { setRemote, status as syncStatus, sync } from "./core/sync.js";
+import { history, setRemote, status as syncStatus, sync } from "./core/sync.js";
 import type { ExportBundle, NewSnippet, SortMode } from "./core/types.js";
 import { dim } from "./ui/color.js";
 import {
@@ -673,6 +673,31 @@ function buildProgram(deps: MainDeps): Command {
       else if (result.pushError !== undefined) {
         printError(`Push failed: ${result.pushError}`);
         printInfoLine("Check your remote and credentials with: deugal sync --status");
+      }
+    });
+
+  program
+    .command("history")
+    .description("show the git history of your store (after deugal sync)")
+    .option("-n, --limit <n>", "number of entries to show", Number.parseInt)
+    .option("--json", "print JSON")
+    .action(async (options: { limit?: number; json?: boolean }) => {
+      const dataDir = loadConfig().dataDir;
+      const limit = options.limit ?? 20;
+      if (!Number.isFinite(limit) || limit < 1) {
+        throw new StoreError(`Invalid limit "${String(options.limit)}". Use a positive number.`, "invalid");
+      }
+      const entries = history(dataDir, limit);
+      if (options.json) {
+        writeJson(entries);
+        return;
+      }
+      if (entries.length === 0) {
+        printInfoLine("No history yet. Run: deugal sync --init");
+        return;
+      }
+      for (const entry of entries) {
+        process.stdout.write(`${dim(entry.hash)}  ${dim(entry.date.slice(0, 19).replace("T", " "))}  ${entry.message}\n`);
       }
     });
 
