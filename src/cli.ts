@@ -537,15 +537,30 @@ function buildProgram(deps: MainDeps): Command {
 
   program
     .command("export <file>")
-    .description("export all snippets to a JSON or YAML file, or to stdout with -")
+    .description("export snippets to a JSON or YAML file, or to stdout with - (optionally filtered)")
+    .option("-t, --tag <tags...>", "export only snippets having all these tags")
+    .option("-l, --lang <lang>", "export only snippets with this language hint")
+    .option("--since <duration>", "export only snippets updated in the last Nm, Nh, Nd or Nw")
     .addOption(
       new Option("-f, --format <format>", "output format (default: inferred from file extension)")
         .choices(["json", "yaml"]),
     )
-    .action(async (file: string, options: { format?: "json" | "yaml" }) => {
+    .action(async (file: string, options: {
+      tag?: string[] | undefined;
+      lang?: string | undefined;
+      since?: string | undefined;
+      format?: "json" | "yaml" | undefined;
+    }) => {
       const store = getStore();
       const format = options.format ?? inferFormat(file);
-      const bundle: ExportBundle = { deugal: TRANSFER_VERSION, exportedAt: new Date().toISOString(), snippets: store.all() };
+      const lang = options.lang?.trim().toLowerCase();
+      let snippets = store.list({
+        tags: parseTags(options.tag),
+        sort: "created",
+        updatedSince: options.since !== undefined ? sinceEpoch(options.since) : undefined,
+      });
+      if (lang) snippets = snippets.filter((s) => s.language === lang);
+      const bundle: ExportBundle = { deugal: TRANSFER_VERSION, exportedAt: new Date().toISOString(), snippets };
       if (file === "-") {
         process.stdout.write(serializeBundle(bundle, format));
         return;

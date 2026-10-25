@@ -401,6 +401,32 @@ describe("main() CLI flows", () => {
     expect(imported?.content).toBe("works");
   });
 
+  it("export filters by tag, lang and since", async () => {
+    await capture(() => main(["add", "tagged bash", "echo hi", "-t", "core", "-l", "bash"]));
+    await capture(() => main(["add", "tagged sql", "SELECT 1", "-t", "core", "-l", "sql"]));
+    await capture(() => main(["add", "other bash", "ls", "-l", "bash"]));
+
+    const tagged = await capture(() => main(["export", "-", "--tag", "core"]));
+    const parsedTagged = JSON.parse(tagged.out) as { snippets: Array<{ title: string }> };
+    expect(parsedTagged.snippets.map((s) => s.title).sort()).toEqual(["tagged bash", "tagged sql"]);
+
+    const byLang = await capture(() => main(["export", "-", "--lang", "sql"]));
+    const parsedLang = JSON.parse(byLang.out) as { snippets: Array<{ title: string }> };
+    expect(parsedLang.snippets.map((s) => s.title)).toEqual(["tagged sql"]);
+
+    const byBoth = await capture(() => main(["export", "-", "--tag", "core", "--lang", "bash"]));
+    const parsedBoth = JSON.parse(byBoth.out) as { snippets: Array<{ title: string }> };
+    expect(parsedBoth.snippets.map((s) => s.title)).toEqual(["tagged bash"]);
+
+    const since = await capture(() => main(["export", "-", "--since", "1h"]));
+    const parsedSince = JSON.parse(since.out) as { snippets: unknown[] };
+    expect(parsedSince.snippets).toHaveLength(3);
+
+    const empty = await capture(() => main(["export", "-", "--tag", "absent"]));
+    const parsedEmpty = JSON.parse(empty.out) as { snippets: unknown[] };
+    expect(parsedEmpty.snippets).toEqual([]);
+  });
+
   it("export then import round trip preserves snippets", async () => {
     await capture(() => main(["add", "round", "trip", "-t", "rt"]));
     const exportFile = path.join(homeDir, "out.json");
