@@ -231,6 +231,17 @@ describe("main() CLI flows", () => {
     expect(again).toContain("No duplicate content found");
   });
 
+  it("list --since keeps only recently updated snippets", async () => {
+    await capture(() => main(["add", "old entry", "1"]));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await capture(() => main(["add", "fresh entry", "2"]));
+    const { code, out } = await capture(() => main(["list", "--since", "1m"]));
+    expect(code).toBe(0);
+    expect(out).toContain("fresh entry");
+    expect(out).not.toContain(" old entry ");
+    expect(await main(["list", "--since", "nope"])).toBe(1);
+  });
+
   it("recover lists and restores backups", async () => {
     await capture(() => main(["add", "keep me", "good"]));
     await capture(() => main(["add", "second", "still good"]));
