@@ -317,11 +317,21 @@ function buildProgram(deps: MainDeps): Command {
     .alias("find")
     .description("search snippets by title, tags, description, language or content (fuzzy on titles)")
     .option("-t, --tag <tags...>", "restrict search to snippets having all these tags")
+    .option("--regex", "treat the terms as regular expressions")
+    .option("-c, --case-sensitive", "match case exactly")
     .option("--json", "print JSON instead of a table")
-    .action(async (terms: string[], options: { tag?: string[]; json?: boolean }) => {
+    .action(async (terms: string[], options: {
+      tag?: string[] | undefined;
+      regex?: boolean | undefined;
+      caseSensitive?: boolean | undefined;
+      json?: boolean | undefined;
+    }) => {
       const store = getStore();
       const candidates = store.list({ tags: parseTags(options.tag) });
-      const hits = search(candidates, terms);
+      const hits = search(candidates, terms, {
+        regex: options.regex === true,
+        ignoreCase: options.caseSensitive !== true,
+      });
       if (options.json) {
         writeJson(hits);
         return;
