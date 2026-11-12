@@ -339,6 +339,25 @@ describe("main() CLI flows", () => {
     expect(unpinned).toContain("Unpinned");
   });
 
+  it("recent and stats accept tag and lang filters", async () => {
+    await capture(() => main(["add", "bash a", "1", "-t", "ops", "-l", "bash"]));
+    await capture(() => main(["add", "sql a", "2", "-t", "ops", "-l", "sql"]));
+    await capture(() => main(["add", "bash b", "3", "-t", "misc", "-l", "bash"]));
+
+    const { out: recent } = await capture(() => main(["recent", "5", "--tag", "ops", "--lang", "sql"]));
+    expect(recent).toContain("sql a");
+    expect(recent).not.toContain("bash a");
+
+    const { out: statsOut } = await capture(() => main(["stats", "--lang", "bash"]));
+    expect(statsOut).toContain("snippets: 2 of 3");
+    expect(statsOut).toContain("top tags");
+
+    const { out: statsJson } = await capture(() => main(["stats", "--tag", "ops", "--json"]));
+    const parsed = JSON.parse(statsJson) as { count: number; topTags: Array<{ tag: string; count: number }> };
+    expect(parsed.count).toBe(2);
+    expect(parsed.topTags[0]).toEqual({ tag: "ops", count: 2 });
+  });
+
   it("recent lists newest creations first with a limit", async () => {
     await capture(() => main(["add", "old one", "1"]));
     await new Promise((resolve) => setTimeout(resolve, 5));
