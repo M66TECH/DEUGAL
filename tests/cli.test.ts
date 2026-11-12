@@ -433,6 +433,43 @@ describe("main() CLI flows", () => {
     expect(imported?.content).toBe("works");
   });
 
+  it("export csv and reimport it into a fresh store", async () => {
+    await capture(() => main(["add", "avec, virgule", "echo \"hi\"", "-t", "csv", "-l", "bash"]));
+    const { code, out } = await capture(() => main(["export", "-", "-f", "csv"]));
+    expect(code).toBe(0);
+    expect(out.split("\n")[0]).toBe("title,content,tags,language,description");
+
+    const csvFile = path.join(homeDir, "export.csv");
+    expect(await main(["export", csvFile])).toBe(0);
+    const raw = readFileSync(csvFile, "utf8");
+    expect(raw).toContain('"avec, virgule"');
+
+    const secondHome = mkdtempSync(path.join(os.tmpdir(), "deugal-cli-csv-"));
+    try {
+      process.env.DEUGAL_HOME = secondHome;
+      expect(await main(["import", csvFile])).toBe(0);
+      const fresh = new SnippetStore(path.join(secondHome, "snippets.json"));
+      const imported = fresh.all()[0]!;
+      expect(imported.title).toBe("avec, virgule");
+      expect(imported.content).toBe('echo "hi"');
+      expect(imported.tags).toEqual(["csv"]);
+      expect(imported.language).toBe("bash");
+    } finally {
+      process.env.DEUGAL_HOME = homeDir;
+      rmSync(secondHome, { recursive: true, force: true });
+    }
+  });
+
+  it("search --regex and --case-sensitive work together", async () => {
+    await capture(() => main(["add", "Deploy prod", "rsync -avz ./dist/ host:/var/www"]));
+    await capture(() => main(["add", "deploy test", "kubectl apply -f k8s/"]));
+    expect((await capture(() => main(["search", "^deploy", "--regex"]))).out).toContain("deploy test");
+    const strict = await capture(() => main(["search", "^Deploy", "--regex", "--case-sensitive"]));
+    expect(strict.out).toContain("Deploy prod");
+    expect(strict.out).not.toContain("deploy test");
+    expect(await main(["search", "[invalide", "--regex"])).toBe(1);
+  });
+
   it("export filters by tag, lang and since", async () => {
     await capture(() => main(["add", "tagged bash", "echo hi", "-t", "core", "-l", "bash"]));
     await capture(() => main(["add", "tagged sql", "SELECT 1", "-t", "core", "-l", "sql"]));
