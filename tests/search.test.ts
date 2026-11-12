@@ -110,3 +110,33 @@ describe("isSubsequence", () => {
     expect(isSubsequence("toolongneedle", "short")).toBe(false);
   });
 });
+
+describe("search with regular expressions", () => {
+  it("matches patterns across fields", () => {
+    expect(search(corpus, ["^git\\s+reset"], { regex: true }).map((h) => h.snippet.id)).toEqual(["gitreseth"]);
+    expect(search(corpus, ["pg_dump|mysqldump"], { regex: true }).map((h) => h.snippet.id)).toEqual(["sqldump"]);
+    expect(search(corpus, ["react|vue"], { regex: true }).map((h) => h.snippet.id)).toEqual(["reacthook"]);
+  });
+
+  it("requires every pattern to match somewhere", () => {
+    expect(search(corpus, ["git", "reset"], { regex: true }).map((h) => h.snippet.id)).toEqual(["gitreseth"]);
+    expect(search(corpus, ["git", "postgres"], { regex: true })).toEqual([]);
+  });
+
+  it("is case-insensitive by default and can be strict", () => {
+    expect(search(corpus, ["^GIT"], { regex: true })).toHaveLength(1);
+    expect(search(corpus, ["^GIT"], { regex: true, ignoreCase: false })).toEqual([]);
+    expect(search(corpus, ["^git"], { regex: true, ignoreCase: false })).toHaveLength(1);
+  });
+
+  it("reports invalid patterns clearly", () => {
+    expect(() => search(corpus, ["[unclosed"], { regex: true })).toThrow(/Invalid regular expression/);
+  });
+});
+
+describe("search case sensitivity without regex", () => {
+  it("matches exactly when ignoreCase is false", () => {
+    expect(search(corpus, ["GIT RESET"], { ignoreCase: false })).toEqual([]);
+    expect(search(corpus, ["Git reset"], { ignoreCase: false })).toHaveLength(1);
+  });
+});
