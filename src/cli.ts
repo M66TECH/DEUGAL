@@ -553,14 +553,14 @@ function buildProgram(deps: MainDeps): Command {
     .option("-l, --lang <lang>", "export only snippets with this language hint")
     .option("--since <duration>", "export only snippets updated in the last Nm, Nh, Nd or Nw")
     .addOption(
-      new Option("-f, --format <format>", "output format (default: inferred from file extension)")
-        .choices(["json", "yaml"]),
+      new Option("-f, --format <format>", "output format (default: inferred from file extension: json, yaml or csv)")
+        .choices(["json", "yaml", "csv"]),
     )
     .action(async (file: string, options: {
       tag?: string[] | undefined;
       lang?: string | undefined;
       since?: string | undefined;
-      format?: "json" | "yaml" | undefined;
+      format?: "json" | "yaml" | "csv" | undefined;
     }) => {
       const store = getStore();
       const format = options.format ?? inferFormat(file);
@@ -587,9 +587,9 @@ function buildProgram(deps: MainDeps): Command {
     .option("--overwrite", "replace existing snippets that have the same id")
     .addOption(
       new Option("-f, --format <format>", "input format (default: inferred from file extension)")
-        .choices(["json", "yaml"]),
+        .choices(["json", "yaml", "csv"]),
     )
-    .action(async (file: string, options: { overwrite?: boolean; format?: "json" | "yaml" }) => {
+    .action(async (file: string, options: { overwrite?: boolean; format?: "json" | "yaml" | "csv" }) => {
       const store = getStore();
       const format = options.format ?? inferFormat(file);
       const text = file === "-" ? await readStdin() : readFileSync(file, "utf8");

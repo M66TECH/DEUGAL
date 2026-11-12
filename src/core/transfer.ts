@@ -2,19 +2,22 @@ import { stringify as stringifyYaml, parse as parseYaml } from "yaml";
 import { StoreError } from "./errors.js";
 import { normalizeSnippetInput } from "./store.js";
 import { randomId } from "./id.js";
+import { parseCsvSnippets, serializeCsv } from "./csv.js";
 import type { ExportBundle, NewSnippet, Snippet } from "./types.js";
 
-export type TransferFormat = "json" | "yaml";
+export type TransferFormat = "json" | "yaml" | "csv";
 
 export const TRANSFER_VERSION = 1;
 
 export function inferFormat(filePath: string): TransferFormat {
   const lower = filePath.toLowerCase();
   if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
+  if (lower.endsWith(".csv")) return "csv";
   return "json";
 }
 
 export function serializeBundle(bundle: ExportBundle, format: TransferFormat): string {
+  if (format === "csv") return serializeCsv(bundle.snippets);
   const text =
     format === "yaml" ? stringifyYaml(bundle) : `${JSON.stringify(bundle, null, 2)}\n`;
   return text;
@@ -32,6 +35,22 @@ function optionalString(record: Record<string, unknown>, key: string): string | 
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") return undefined;
   return value;
+}
+
+function toSnippet(normalized: NewSnippet): Snippet {
+  const now = new Date().toISOString();
+  const snippet: Snippet = {
+    id: randomId(),
+    title: normalized.title,
+    content: normalized.content,
+    tags: normalized.tags,
+    createdAt: now,
+    updatedAt: now,
+    useCount: 0,
+  };
+  if (normalized.description !== undefined) snippet.description = normalized.description;
+  if (normalized.language !== undefined) snippet.language = normalized.language;
+  return snippet;
 }
 
 function normalizeEntry(value: unknown, index: number): Snippet {
@@ -74,6 +93,9 @@ function normalizeEntry(value: unknown, index: number): Snippet {
 }
 
 export function parseBundle(text: string, format: TransferFormat): Snippet[] {
+  if (format === "csv") {
+    return parseCsvSnippets(text).map((input) => toSnippet(input));
+  }
   let parsed: unknown;
   try {
     parsed = format === "yaml" ? parseYaml(text) : JSON.parse(text);
