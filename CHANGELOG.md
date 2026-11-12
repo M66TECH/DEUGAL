@@ -2,6 +2,15 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 0.7.0
+
+### Ajouts
+
+- Recherche par expression reguliere avec --regex, et option --case-sensitive pour exiger la casse.
+- Export et import au format CSV (colonnes title, content, tags, language, description), compatible tableur.
+- Filtres --tag, --lang et --since sur recent et stats.
+- stats affiche le nombre d utilisations totales et les tags les plus utilises.
+
 ## 0.6.0
 
 ### Ajouts
