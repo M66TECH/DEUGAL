@@ -292,14 +292,22 @@ function buildProgram(deps: MainDeps): Command {
   program
     .command("recent [n]")
     .description("show the n most recently created snippets (default 10)")
+    .option("-t, --tag <tags...>", "filter by tags (AND), comma or space separated")
+    .option("-l, --lang <lang>", "filter by language hint")
     .option("--json", "print JSON instead of a table")
-    .action(async (n: string | undefined, options: { json?: boolean }) => {
+    .action(async (n: string | undefined, options: {
+      tag?: string[] | undefined;
+      lang?: string | undefined;
+      json?: boolean | undefined;
+    }) => {
       const store = getStore();
       const limit = n !== undefined ? Number.parseInt(n, 10) : 10;
       if (Number.isNaN(limit) || limit < 0) {
         throw new StoreError(`Invalid count "${String(n)}". Use a positive number.`, "invalid");
       }
-      const items = store.list({ sort: "created", limit });
+      const lang = options.lang?.trim().toLowerCase();
+      let items = store.list({ sort: "created", limit, tags: parseTags(options.tag) });
+      if (lang) items = items.filter((s) => s.language === lang);
       if (options.json) {
         writeJson(items);
         return;
@@ -760,29 +768,63 @@ function buildProgram(deps: MainDeps): Command {
 
   program
     .command("stats")
-    .description("quick stats about your snippet collection")
+    .description("quick stats about your snippet collection, optionally on a filtered subset")
+    .option("-t, --tag <tags...>", "only count snippets having all these tags")
+    .option("-l, --lang <lang>", "only count snippets with this language hint")
+    .option("--since <duration>", "only count snippets updated in the last Nm, Nh, Nd or Nw")
     .option("--json", "print JSON")
-    .action(async (options: { json?: boolean }) => {
+    .action(async (options: {
+      tag?: string[] | undefined;
+      lang?: string | undefined;
+      since?: string | undefined;
+      json?: boolean | undefined;
+    }) => {
       const store = getStore();
-      const all = store.all();
+      const lang = options.lang?.trim().toLowerCase();
+      const selected = store.list({
+        tags: parseTags(options.tag),
+        sort: "created",
+        updatedSince: options.since !== undefined ? sinceEpoch(options.since) : undefined,
+      });
+      const scoped = lang ? selected.filter((s) => s.language === lang) : selected;
+      const scopedIds = new Set(scoped.map((s) => s.id));
+      const tagCounts = new Map<string, number>();
+      for (const snippet of scoped) {
+        for (const tag of snippet.tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+      const topTags = [...tagCounts.entries()]
+        .map(([tag, count]) => ({ tag, count }))
+        .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+        .slice(0, 5);
       const stats = {
-        count: all.length,
-        tags: store.tagCounts().length,
-        topUsed: [...all].sort((a, b) => b.useCount - a.useCount).slice(0, 5),
-        newest: [...all].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
+        count: scoped.length,
+        tags: tagCounts.size,
+        totalUses: scoped.reduce((sum, s) => sum + s.useCount, 0),
+        topTags,
+        topUsed: [...scoped].sort((a, b) => b.useCount - a.useCount).slice(0, 5),
+        newest: [...scoped].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
+        filtered: scopedIds.size !== store.size(),
       };
       if (options.json) {
         writeJson({ ...stats, storeFile: store.file });
         return;
       }
-      process.stdout.write(`snippets: ${stats.count}\ntags:     ${stats.tags}\n`);
+      process.stdout.write(
+        `snippets: ${stats.count}${stats.filtered ? ` of ${store.size()}` : ""}\ntags:     ${stats.tags}\nuses:     ${stats.totalUses}\n`,
+      );
+      if (stats.topTags.length > 0) {
+        process.stdout.write("top tags:\n");
+        for (const entry of stats.topTags) {
+          process.stdout.write(`  ${entry.tag.padEnd(24)} ${entry.count}\n`);
+        }
+      }
       if (stats.topUsed.length > 0 && stats.topUsed.some((s) => s.useCount > 0)) {
         process.stdout.write("top used:\n");
         for (const s of stats.topUsed.filter((s) => s.useCount > 0).slice(0, 5)) {
           process.stdout.write(`  ${s.id}  ${s.title.padEnd(36)} ${s.useCount} use(s)\n`);
         }
       }
-      if (all.length > 0) {
+      if (scoped.length > 0) {
         const newest = stats.newest[0]!;
         printInfoLine(`store: ${store.file}`);
         printInfoLine(`newest: ${newest.id}  ${newest.title}`);
