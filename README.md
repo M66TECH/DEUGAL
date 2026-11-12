@@ -59,8 +59,8 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | --- | --- |
 | `deugal add <title> [content]` | Add a snippet (argument, piped stdin, or `--editor`) |
 | `deugal list` / `ls` | List snippets (`--sort recent\|created\|used\|alpha`, `--tag`, `--lang`, `--since 7d`, `--limit`, `--json`) |
-| `deugal recent [n]` | The n most recently created snippets (default 10) |
-| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles and tags (AND semantics), `--tag` filter |
+| `deugal recent [n]` | The n most recently created snippets (default 10), filters `--tag`, `--lang` |
+| `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles and tags (AND semantics), `--tag`, `--regex`, `--case-sensitive` |
 | `deugal related <id>` | Snippets sharing at least one tag with `<id>`, ranked by overlap |
 | `deugal show <id>` | Metadata + content |
 | `deugal use <id>` | Raw content on stdout, pipe-friendly (`--copy`, `--no-track`) |
@@ -70,12 +70,12 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | `deugal tag add/rm <id> <tags...>` | Manage tags on a snippet |
 | `deugal tag rename <old> <new>` | Rename a tag on every snippet |
 | `deugal tags` | All tags with counts |
-| `deugal export <file>` / `export -` | Export to a JSON/YAML file or to stdout, filtered by `--tag`, `--lang`, `--since` |
-| `deugal import <file>` / `import -` | Import from a file or from piped stdin (`--overwrite` to replace same-id snippets) |
+| `deugal export <file>` / `export -` | Export to a JSON, YAML or CSV file (or stdout), filtered by `--tag`, `--lang`, `--since` |
+| `deugal import <file>` / `import -` | Import from a JSON, YAML or CSV file (or piped stdin), `--overwrite` to replace same-id snippets |
 | `deugal history` | Git history of your store (after `deugal sync`), `--limit`, `--json` |
 | `deugal doctor` | Health check: node, data dir, store, backups, config, git sync |
 | `deugal recover [--from n]` | List the rotating backups, or restore the nth |
-| `deugal stats` | Collection stats |
+| `deugal stats` | Collection stats (`--tag`, `--lang`, `--since`, `--json`) |
 | `deugal config` | Show preferences (`config set editor\|sort\|limit <value>`, `config reset`) |
 | `deugal completions <shell>` | Print a completion script for bash, zsh or powershell |
 | `deugal dedupe [--dry-run]` | Remove snippets with identical content, keep the most used |
