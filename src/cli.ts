@@ -442,14 +442,21 @@ function buildProgram(deps: MainDeps): Command {
     .command("show <id>")
     .description("show a snippet's metadata and content (ids are prefix-matchable)")
     .option("--json", "print JSON")
-    .action(async (id: string, options: { json?: boolean }) => {
+    .option("-c, --copy", "also copy the content to the clipboard")
+    .option("--no-track", "do not increment the usage counter when copying")
+    .action(async (id: string, options: { json?: boolean; copy?: boolean; track?: boolean }) => {
       const store = getStore();
       const snippet = store.resolve(id);
+      if (options.copy) {
+        copyToClipboard(snippet.content);
+        if (options.track !== false) store.markUsed(snippet.id);
+      }
       if (options.json) {
         writeJson(snippet);
         return;
       }
       printShow(snippet);
+      if (options.copy) printInfoLine("Copied to clipboard.");
     });
 
   program

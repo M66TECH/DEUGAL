@@ -238,6 +238,16 @@ describe("main() CLI flows", () => {
     expect(await main(["import-lines", empty])).toBe(1);
   });
 
+  it("show --json exposes the snippet without touching the counter", async () => {
+    await capture(() => main(["add", "regarde moi", "contenu"]));
+    const id = idByTitle("regarde moi");
+    const { code, out } = await capture(() => main(["show", id, "--json", "--no-track"]));
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out) as { title: string; useCount: number };
+    expect(parsed.title).toBe("regarde moi");
+    expect(parsed.useCount).toBe(0);
+  });
+
   it("similar finds near duplicates and validates the threshold", async () => {
     await capture(() => main(["add", "reset un", "git reset --hard origin/main"]));
     await capture(() => main(["add", "reset deux", "git reset --hard origin/main!"]));
