@@ -19,6 +19,7 @@ import { editInEditor } from "./core/editor.js";
 import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { findSimilar } from "./core/similar.js";
+import { parseCommandLines } from "./core/textimport.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import { sinceEpoch } from "./core/period.js";
 import { hasErrors, runChecks } from "./core/doctor.js";
@@ -396,7 +397,7 @@ function buildProgram(deps: MainDeps): Command {
   const COMMAND_NAMES = [
     "add", "list", "recent", "search", "related", "show", "use", "edit", "rm",
     "pin", "unpin", "tag", "tags", "export", "import", "recover", "stats", "config",
-    "similar", "dedupe", "history", "doctor", "completions", "candidates",
+    "similar", "dedupe", "history", "doctor", "completions", "candidates", "import-lines",
     "help",
   ];
 
@@ -554,6 +555,36 @@ function buildProgram(deps: MainDeps): Command {
         return;
       }
       printTags(counts);
+    });
+
+  program
+    .command("import-lines [file]")
+    .description("import one snippet per line from a plain text file (or stdin with -), skipping blanks and # comments")
+    .option("-t, --tag <tags...>", "tag every imported snippet")
+    .option("-l, --lang <lang>", "language hint for every imported snippet")
+    .option("--dry-run", "show what would be imported without saving")
+    .action(async (file: string | undefined, options: {
+      tag?: string[] | undefined;
+      lang?: string | undefined;
+      dryRun?: boolean | undefined;
+    }) => {
+      const store = getStore();
+      const source = file ?? "-";
+      const text = source === "-" ? await readStdin() : readFileSync(source, "utf8");
+      const inputs = parseCommandLines(text, {
+        tag: parseTags(options.tag).join(" "),
+        language: options.lang,
+      });
+      if (options.dryRun) {
+        printInfoLine(`${inputs.length} snippet(s) would be imported from ${source === "-" ? "stdin" : source}:`);
+        for (const input of inputs) {
+          printInfoLine(`  ${input.content}`);
+        }
+        return;
+      }
+      const created = inputs.map((input) => store.add(input));
+      printSuccess(`Imported ${created.length} snippet(s) from ${source === "-" ? "stdin" : source}`);
+      printInfoLine(`First one: deugal show ${created[0]!.id}`);
     });
 
   program
