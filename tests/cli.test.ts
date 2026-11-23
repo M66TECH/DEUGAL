@@ -217,6 +217,27 @@ describe("main() CLI flows", () => {
     expect(forced).toContain("ccc");
   });
 
+  it("import-lines reads a text file of commands with dry-run support", async () => {
+    const txt = path.join(homeDir, "commands.txt");
+    writeFileSync(txt, "# mes commandes\ngit status\nls -la\ngit status\n", "utf8");
+
+    const { out: dry } = await capture(() => main(["import-lines", txt, "--dry-run", "-t", "old"]));
+    expect(dry).toContain("2 snippet(s) would be imported");
+    expect(store().size()).toBe(0);
+
+    const { code, out } = await capture(() => main(["import-lines", txt, "-t", "old", "-l", "bash"]));
+    expect(code).toBe(0);
+    expect(out).toContain("Imported 2 snippet(s)");
+    const all = store().all();
+    expect(all.map((s) => s.content).sort()).toEqual(["git status", "ls -la"]);
+    expect(all.every((s) => s.tags.includes("old"))).toBe(true);
+    expect(all.every((s) => s.language === "bash")).toBe(true);
+
+    const empty = path.join(homeDir, "vide.txt");
+    writeFileSync(empty, "\n# que des commentaires\n", "utf8");
+    expect(await main(["import-lines", empty])).toBe(1);
+  });
+
   it("similar finds near duplicates and validates the threshold", async () => {
     await capture(() => main(["add", "reset un", "git reset --hard origin/main"]));
     await capture(() => main(["add", "reset deux", "git reset --hard origin/main!"]));

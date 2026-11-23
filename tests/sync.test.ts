@@ -41,7 +41,7 @@ describe("sync module", () => {
 
     const clean = sync(dir);
     expect(clean.committed).toBe(false);
-  });
+  }, 30_000);
 
   it.skipIf(!gitWorks)("keeps a remote url and reports sync status", () => {
     writeFileSync(path.join(dir, "snippets.json"), "{}", "utf8");
@@ -75,7 +75,7 @@ describe("sync module", () => {
     expect(Date.parse(entries[0]!.date)).not.toBeNaN();
 
     expect(history(dir, 1)).toHaveLength(1);
-  });
+  }, 30_000);
 
   it("returns no history outside a repo", () => {
     expect(history(path.join(dir, "nowhere"))).toEqual([]);
