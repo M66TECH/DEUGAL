@@ -2,6 +2,14 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 0.8.0
+
+### Ajouts
+
+- Commande similar: detecte les contenus quasi identiques avec un seuil de ressemblance (distance d edition).
+- Commande import-lines: importe un snippet par ligne depuis un fichier texte de commandes, avec --dry-run, --tag et --lang.
+- Option --copy sur show, avec --no-track pour ne pas incrementer le compteur d utilisation.
+
 ## 0.7.0
 
 ### Ajouts

@@ -62,7 +62,7 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | `deugal recent [n]` | The n most recently created snippets (default 10), filters `--tag`, `--lang` |
 | `deugal search <terms...>` / `find` | Weighted, case-insensitive search, fuzzy fallback on titles and tags (AND semantics), `--tag`, `--regex`, `--case-sensitive` |
 | `deugal related <id>` | Snippets sharing at least one tag with `<id>`, ranked by overlap |
-| `deugal show <id>` | Metadata + content |
+| `deugal show <id>` | Metadata + content (`--copy`, `--json`) |
 | `deugal use <id>` | Raw content on stdout, pipe-friendly (`--copy`, `--no-track`) |
 | `deugal edit <id>` | Edit content in `$EDITOR` (or your configured editor) |
 | `deugal pin <id>` / `unpin <id>` | Pinned snippets always appear first in lists (marked `*`) |
@@ -79,6 +79,8 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | `deugal config` | Show preferences (`config set editor\|sort\|limit <value>`, `config reset`) |
 | `deugal completions <shell>` | Print a completion script for bash, zsh or powershell |
 | `deugal dedupe [--dry-run]` | Remove snippets with identical content, keep the most used |
+| `deugal similar [threshold]` | Find near-identical content (edit distance, default 0.85) |
+| `deugal import-lines [file]` | One snippet per line from a plain text file (or `-`), `--dry-run`, `--tag`, `--lang` |
 | `deugal sync` | Commit the store to a local git repo (`--remote <url>`, `--message`, `--status`) |
 
 Global flag: `--no-color` disables colored output (the `NO_COLOR` environment variable is honored too). Every command that prints data also accepts `--json` where noted, for scripting.
