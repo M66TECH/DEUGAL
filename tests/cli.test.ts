@@ -217,6 +217,25 @@ describe("main() CLI flows", () => {
     expect(forced).toContain("ccc");
   });
 
+  it("similar finds near duplicates and validates the threshold", async () => {
+    await capture(() => main(["add", "reset un", "git reset --hard origin/main"]));
+    await capture(() => main(["add", "reset deux", "git reset --hard origin/main!"]));
+    await capture(() => main(["add", "autre", "SELECT 1"]));
+
+    const { code, out } = await capture(() => main(["similar"]));
+    expect(code).toBe(0);
+    expect(out).toContain("reset un");
+    expect(out).toContain("reset deux");
+    expect(out).not.toContain("autre");
+
+    const { out: json } = await capture(() => main(["similar", "0.9", "--json"]));
+    const groups = JSON.parse(json) as Array<{ snippets: Array<{ title: string }> }>;
+    expect(groups).toHaveLength(1);
+
+    expect(await main(["similar", "1.5"])).toBe(1);
+    expect(await main(["similar", "abc"])).toBe(1);
+  });
+
   it("dedupe removes duplicates with dry-run preview", async () => {
     await capture(() => main(["add", "copy one", "same content"]));
     await capture(() => main(["add", "copy two", "same content"]));

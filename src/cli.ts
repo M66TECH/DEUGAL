@@ -18,6 +18,7 @@ import { copyToClipboard } from "./core/clipboard.js";
 import { editInEditor } from "./core/editor.js";
 import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
+import { findSimilar } from "./core/similar.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import { sinceEpoch } from "./core/period.js";
 import { hasErrors, runChecks } from "./core/doctor.js";
@@ -395,6 +396,7 @@ function buildProgram(deps: MainDeps): Command {
   const COMMAND_NAMES = [
     "add", "list", "recent", "search", "related", "show", "use", "edit", "rm",
     "pin", "unpin", "tag", "tags", "export", "import", "recover", "stats", "config",
+    "similar", "dedupe", "history", "doctor", "completions", "candidates",
     "help",
   ];
 
@@ -622,6 +624,37 @@ function buildProgram(deps: MainDeps): Command {
       for (const id of skippedIds) {
         printInfoLine(`  skipped existing id: ${id} (use --overwrite to replace)`);
       }
+    });
+
+  program
+    .command("similar [threshold]")
+    .description("find snippets whose content is nearly identical (0 to 1, default 0.85)")
+    .option("--json", "print JSON")
+    .action(async (threshold: string | undefined, options: { json?: boolean }) => {
+      const store = getStore();
+      let limit = 0.85;
+      if (threshold !== undefined) {
+        limit = Number.parseFloat(threshold);
+        if (Number.isNaN(limit) || limit <= 0 || limit > 1) {
+          throw new StoreError(`Invalid threshold "${threshold}". Use a number between 0 and 1.`, "invalid");
+        }
+      }
+      const groups = findSimilar(store.all(), limit);
+      if (options.json) {
+        writeJson(groups);
+        return;
+      }
+      if (groups.length === 0) {
+        printInfoLine(`No near-duplicate content found (threshold ${limit}).`);
+        return;
+      }
+      for (const group of groups) {
+        printInfoLine(`similarity ${Math.round(group.score * 100)}%  ${group.snippets.length} snippet(s)`);
+        for (const snippet of group.snippets) {
+          process.stdout.write(`  ${dim(snippet.id)}  ${snippet.title}\n`);
+        }
+      }
+      printInfoLine(`${groups.length} group(s). Remove with: deugal rm <ids...> --force`);
     });
 
   program
