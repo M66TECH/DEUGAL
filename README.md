@@ -79,6 +79,7 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | `deugal config` | Show preferences (`config set editor\|sort\|limit <value>`, `config reset`) |
 | `deugal completions <shell>` | Print a completion script for bash, zsh or powershell |
 | `deugal dedupe [--dry-run]` | Remove snippets with identical content, keep the most used |
+| `deugal browse` / `ui` | Interactive browser: type to filter, arrows to move, enter to copy, `u` to print, `e` to edit |
 | `deugal similar [threshold]` | Find near-identical content (edit distance, default 0.85) |
 | `deugal import-lines [file]` | One snippet per line from a plain text file (or `-`), `--dry-run`, `--tag`, `--lang` |
 | `deugal sync` | Commit the store to a local git repo (`--remote <url>`, `--message`, `--status`) |
