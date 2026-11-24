@@ -19,6 +19,7 @@ import { editInEditor } from "./core/editor.js";
 import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { findSimilar } from "./core/similar.js";
+import { browseSnippets } from "./ui/navigator-driver.js";
 import { parseCommandLines } from "./core/textimport.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import { sinceEpoch } from "./core/period.js";
@@ -397,7 +398,7 @@ function buildProgram(deps: MainDeps): Command {
   const COMMAND_NAMES = [
     "add", "list", "recent", "search", "related", "show", "use", "edit", "rm",
     "pin", "unpin", "tag", "tags", "export", "import", "recover", "stats", "config",
-    "similar", "dedupe", "history", "doctor", "completions", "candidates", "import-lines",
+    "similar", "dedupe", "history", "doctor", "completions", "candidates", "import-lines", "browse",
     "help",
   ];
 
@@ -662,6 +663,48 @@ function buildProgram(deps: MainDeps): Command {
       for (const id of skippedIds) {
         printInfoLine(`  skipped existing id: ${id} (use --overwrite to replace)`);
       }
+    });
+
+  program
+    .command("browse")
+    .alias("ui")
+    .description("interactive browser: navigate, preview, copy or edit snippets without typing ids")
+    .option("-t, --tag <tags...>", "restrict the browser to snippets having all these tags")
+    .action(async (options: { tag?: string[] }) => {
+      const store = getStore();
+      const items = store.list({ tags: parseTags(options.tag) });
+      if (items.length === 0) {
+        printInfoLine('No snippets to browse. Add one with: deugal add "my snippet" "content"');
+        return;
+      }
+      if (!process.stdin.isTTY) {
+        throw new StoreError("deugal browse needs an interactive terminal (stdin is not a TTY).", "io");
+      }
+      const result = await browseSnippets(items);
+      if (result === undefined) {
+        printInfoLine("Cancelled.");
+        return;
+      }
+      if (result.action === "copy") {
+        copyToClipboard(result.snippet.content);
+        store.markUsed(result.snippet.id);
+        printSuccess(`Copied ${result.snippet.id}  ${result.snippet.title}`);
+        return;
+      }
+      if (result.action === "use") {
+        store.markUsed(result.snippet.id);
+        process.stdout.write(result.snippet.content);
+        if (!result.snippet.content.endsWith("\n")) process.stdout.write("\n");
+        return;
+      }
+      const userConfig = getUserConfig();
+      const edited = editInEditor(result.snippet.content, userConfig.editor);
+      if (edited.trim() === result.snippet.content.trim() || !edited.trim()) {
+        printInfoLine("No changes.");
+        return;
+      }
+      const updated = store.update(result.snippet.id, { content: edited.replace(/\r?\n$/, "") });
+      printSuccess(`Updated ${updated.id}  ${updated.title}`);
     });
 
   program
