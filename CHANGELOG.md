@@ -2,6 +2,12 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 0.9.0
+
+### Ajouts
+
+- Commande browse (alias ui): navigateur interactif pour parcourir les snippets, filtrer en tapant, previsualiser, copier, utiliser ou editer sans retaper les ids.
+
 ## 0.8.0
 
 ### Ajouts
