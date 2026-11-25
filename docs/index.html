@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>deugal — gestionnaire de snippets pour le terminal</title>
+    <meta name="description" content="Gestionnaire de snippets local-first pour le terminal: stocker, chercher, taguer et reutiliser ses commandes." />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>deu<span>gal</span></h1>
+      <p class="lead">
+        Le gestionnaire de snippets qui vit dans ton terminal. Tes commandes restent chez toi, dans un seul
+        fichier JSON, et tu les retrouves en une seconde.
+      </p>
+
+      <p>
+        <span class="badge">local-first</span>
+        <span class="badge">zero cloud</span>
+        <span class="badge">sans dependance lourde</span>
+        <span class="badge">TypeScript</span>
+      </p>
+
+      <h2>Installation</h2>
+      <pre class="install"><code>npm install -g @m66tech/deugal
+deugal --version</code></pre>
+
+      <h2>En trente secondes</h2>
+      <pre class="demo"><code><i>$</i> deugal add "purge docker" "docker system prune -af" -t docker -l bash
+<i>Added 4f8a1c92  purge docker</i>
+
+<i>$</i> deugal find dkrpg
+<b>4f8a1c92</b>  purge docker    docker     bash   0
+
+<i>$</i> deugal use 4f8a --copy
+docker system prune -af
+<i>Copie dans le presse-papier.</i></code></pre>
+
+      <h2>Ce qu il sait faire</h2>
+      <table>
+        <tr><th>Commande</th><th>Effet</th></tr>
+        <tr><td>deugal add</td><td>Ajouter un snippet (argument, stdin pipe ou editeur)</td></tr>
+        <tr><td>deugal browse</td><td>Navigateur interactif: filtrer, previsualiser, copier, editer</td></tr>
+        <tr><td>deugal search / find</td><td>Recherche ponderee, floue sur titres et tags, ou en regex</td></tr>
+        <tr><td>deugal use</td><td>Sortir le contenu brut, pipe-friendly, compteur d usage</td></tr>
+        <tr><td>deugal related</td><td>Snippets qui partagent des tags</td></tr>
+        <tr><td>deugal tag / tags</td><td>Gerer et renommer les tags, voir les compteurs</td></tr>
+        <tr><td>deugal export / import</td><td>JSON, YAML ou CSV, filtrable par tag, langue ou periode</td></tr>
+        <tr><td>deugal sync / history</td><td>Versionner et sauvegarder le store dans git</td></tr>
+        <tr><td>deugal dedupe / similar</td><td>Doublons exacts ou quasi identiques</td></tr>
+        <tr><td>deugal doctor / recover / migrate</td><td>Diagnostic, restauration de sauvegarde, migration de format</td></tr>
+        <tr><td>deugal completions</td><td>Scripts bash, zsh et powershell</td></tr>
+      </table>
+
+      <h2>Ou vivent tes donnees</h2>
+      <pre><code>~/.deugal/snippets.json   tes snippets
+~/.deugal/config.json     tes preferences
+~/.deugal/*.bak1..bak3    sauvegardes automatiques</code></pre>
+      <p class="demo">
+        Change de dossier avec <code>DEUGAL_HOME</code>. Ecriture atomique, sauvegardes rotatives et
+        commande <code>recover</code> en cas de pépin.
+      </p>
+
+      <h2>Pourquoi</h2>
+      <p class="demo">
+        Chaque developpeur garde un fichier de commandes ou 40 onglets ouverts. Deugal remplace ca par une
+        commande, sans compte, sans synchronisation obligatoire et sans laisser tes commandes sur un serveur.
+      </p>
+
+      <footer>
+        Code source et documentation:
+        <a href="https://github.com/M66TECH/DEUGAL">github.com/M66TECH/DEUGAL</a> —
+        licence MIT.
+      </footer>
+    </main>
+  </body>
+</html>
