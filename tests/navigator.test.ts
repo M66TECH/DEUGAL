@@ -47,15 +47,22 @@ describe("moveCursor", () => {
   });
 
   it("keeps the window scrolled to follow the cursor", () => {
-    const many = Array.from({ length: 20 }, (_, i) => snippet(`id${String(i).padStart(6, "0")}`, `t${i}`));
+    const many = Array.from({ length: 20 }, (_, i) =>
+      snippet(`id${String(i).padStart(6, "0")}`, `t${i}`, {
+        updatedAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+        createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+      }),
+    );
     let state = createState(many, 5);
+    expect(currentSnippet(state)?.title).toBe("t19");
     for (let i = 0; i < 12; i++) state = moveCursor(state, 1);
     expect(state.cursor).toBe(12);
     expect(state.offset).toBe(8);
     const window = visibleWindow(state);
     expect(window.firstIndex).toBe(8);
     expect(window.items).toHaveLength(5);
-    expect(window.items[4]!.title).toBe("t12");
+    expect(window.items[4]!.title).toBe("t7");
+    expect(currentSnippet(state)?.title).toBe("t7");
   });
 
   it("stays at zero on an empty list", () => {

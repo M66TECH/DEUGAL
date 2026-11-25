@@ -66,6 +66,47 @@ describe("parseTags", () => {
   });
 });
 
+describe("validation des arguments", () => {
+  it("rejects non numeric limits instead of silently showing nothing", async () => {
+    await capture(() => main(["add", "un", "1"]));
+    const { err } = await capture(() => main(["list", "--limit", "abc"]));
+    expect(err).toContain("Invalid limit");
+    expect(await main(["list", "--limit", "abc"])).toBe(1);
+    expect(await main(["history", "-n", "abc"])).toBe(1);
+    expect(await main(["recent", "abc"])).toBe(1);
+    expect(await main(["recover", "--from", "abc"])).toBe(1);
+  });
+
+  it("accepts numeric limits", async () => {
+    await capture(() => main(["add", "un", "1"]));
+    await capture(() => main(["add", "deux", "2"]));
+    const { code, out } = await capture(() => main(["list", "--limit", "1"]));
+    expect(code).toBe(0);
+    expect(out).toContain("1 snippet(s)");
+  });
+
+  it("names the empty title when the title is blank", async () => {
+    const { err } = await capture(() => main(["add", "", "du contenu"]));
+    expect(err).toContain("title cannot be empty");
+    expect(err).not.toContain("content is empty");
+  });
+
+  it("reports a missing import file clearly", async () => {
+    const missing = path.join(homeDir, "absent.json");
+    const { code, err } = await capture(() => main(["import", missing]));
+    expect(code).toBe(1);
+    expect(err).toContain("File not found");
+    expect(err).not.toContain("ENOENT");
+    expect(await main(["import-lines", missing])).toBe(1);
+  });
+
+  it("reports a missing migrate file clearly", async () => {
+    const missing = path.join(homeDir, "absent-store.json");
+    const { err } = await capture(() => main(["migrate", missing]));
+    expect(err).toContain("No store file");
+  });
+});
+
 describe("main() CLI flows", () => {
   it("shows version and exits 0", async () => {
     const { code, out } = await capture(() => main(["--version"]));
