@@ -53,6 +53,21 @@ export function parseTags(raw: string[] | undefined): string[] {
   return out;
 }
 
+export function parsePositiveInt(raw: string | number | undefined, label: string): number | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw)) {
+      throw new StoreError(`Invalid ${label}. Use a positive whole number.`, "invalid");
+    }
+    return raw;
+  }
+  const text = raw.trim();
+  if (!/^\d+$/.test(text)) {
+    throw new StoreError(`Invalid ${label} "${raw}". Use a positive whole number.`, "invalid");
+  }
+  return Number.parseInt(text, 10);
+}
+
 async function readStdin(graceMs = 250, maxMs = 5000): Promise<string> {
   const stdin = process.stdin;
   if (stdin.readableEnded) return "";
@@ -103,6 +118,24 @@ function isMainModule(): boolean {
 
 export interface MainDeps {
   store?: SnippetStore;
+}
+
+function readTextFile(file: string): string {
+  try {
+    return readFileSync(file, "utf8");
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "ENOENT") {
+      throw new StoreError(`File not found: ${file}`, "not-found");
+    }
+    if (code === "EACCES" || code === "EPERM") {
+      throw new StoreError(`Permission denied while reading ${file}`, "io");
+    }
+    if (code === "EISDIR") {
+      throw new StoreError(`${file} is a directory, not a file`, "invalid");
+    }
+    throw new StoreError(`Cannot read ${file}: ${errorMessage(err)}`, "io");
+  }
 }
 
 function writeJson(value: unknown): void {
@@ -217,6 +250,9 @@ function buildProgram(deps: MainDeps): Command {
         },
       ) => {
         const store = getStore();
+        if (!title.trim()) {
+          throw new StoreError("Snippet title cannot be empty. Example: deugal add \"docker purge\" \"docker system prune -af\"", "invalid");
+        }
         let body = content ?? "";
         if (options.editor) {
           body = editInEditor(body);
@@ -256,7 +292,7 @@ function buildProgram(deps: MainDeps): Command {
       new Option("-s, --sort <mode>", "sort order (default: recent, or your config sort)")
         .choices(["recent", "created", "used", "alpha"]),
     )
-    .option("-n, --limit <n>", "show at most n snippets", Number.parseInt)
+    .option("-n, --limit <n>", "show at most n snippets")
     .option("--since <duration>", "only snippets updated in the last Nm, Nh, Nd or Nw")
     .option("--json", "print JSON instead of a table")
     .action(
@@ -264,17 +300,18 @@ function buildProgram(deps: MainDeps): Command {
         tag?: string[];
         lang?: string;
         sort?: SortMode;
-        limit?: number;
+        limit?: string;
         since?: string;
         json?: boolean;
       }) => {
         const store = getStore();
         const userConfig = getUserConfig();
         const lang = options.lang?.trim().toLowerCase();
+        const explicitLimit = parsePositiveInt(options.limit, "limit");
         let items = store.list({
           tags: parseTags(options.tag),
           sort: options.sort ?? userConfig.sort ?? "recent",
-          limit: options.limit ?? userConfig.limit,
+          limit: explicitLimit ?? userConfig.limit,
           updatedSince: options.since !== undefined ? sinceEpoch(options.since) : undefined,
         });
         if (lang) {
@@ -305,8 +342,9 @@ function buildProgram(deps: MainDeps): Command {
       json?: boolean | undefined;
     }) => {
       const store = getStore();
-      const limit = n !== undefined ? Number.parseInt(n, 10) : 10;
-      if (Number.isNaN(limit) || limit < 0) {
+      const parsedCount = parsePositiveInt(n, "count");
+      const limit = parsedCount ?? 10;
+      if (limit < 1) {
         throw new StoreError(`Invalid count "${String(n)}". Use a positive number.`, "invalid");
       }
       const lang = options.lang?.trim().toLowerCase();
@@ -580,7 +618,7 @@ function buildProgram(deps: MainDeps): Command {
     }) => {
       const store = getStore();
       const source = file ?? "-";
-      const text = source === "-" ? await readStdin() : readFileSync(source, "utf8");
+      const text = source === "-" ? await readStdin() : readTextFile(source);
       const inputs = parseCommandLines(text, {
         tag: parseTags(options.tag).join(" "),
         language: options.lang,
@@ -643,7 +681,7 @@ function buildProgram(deps: MainDeps): Command {
     .action(async (file: string, options: { overwrite?: boolean; format?: "json" | "yaml" | "csv" }) => {
       const store = getStore();
       const format = options.format ?? inferFormat(file);
-      const text = file === "-" ? await readStdin() : readFileSync(file, "utf8");
+      const text = file === "-" ? await readStdin() : readTextFile(file);
       const incoming = parseBundle(text, format);
       let added = 0;
       let replaced = 0;
@@ -814,13 +852,14 @@ function buildProgram(deps: MainDeps): Command {
   program
     .command("history")
     .description("show the git history of your store (after deugal sync)")
-    .option("-n, --limit <n>", "number of entries to show", Number.parseInt)
+    .option("-n, --limit <n>", "number of entries to show")
     .option("--json", "print JSON")
-    .action(async (options: { limit?: number; json?: boolean }) => {
+    .action(async (options: { limit?: string; json?: boolean }) => {
       const dataDir = loadConfig().dataDir;
-      const limit = options.limit ?? 20;
-      if (!Number.isFinite(limit) || limit < 1) {
-        throw new StoreError(`Invalid limit "${String(options.limit)}". Use a positive number.`, "invalid");
+      const parsedLimit = parsePositiveInt(options.limit, "limit");
+      const limit = parsedLimit ?? 20;
+      if (limit < 1) {
+        throw new StoreError("Invalid limit. Use a positive number.", "invalid");
       }
       const entries = history(dataDir, limit);
       if (options.json) {
@@ -849,7 +888,7 @@ function buildProgram(deps: MainDeps): Command {
       }
       let raw: unknown;
       try {
-        raw = JSON.parse(stripBom(readFileSync(target, "utf8")));
+        raw = JSON.parse(stripBom(readTextFile(target)));
       } catch (err) {
         throw new StoreError(
           `Cannot parse ${target} as JSON: ${errorMessage(err)}. Fix it manually, or restore a backup with: deugal recover`,
@@ -906,11 +945,15 @@ function buildProgram(deps: MainDeps): Command {
   program
     .command("recover")
     .description("list the rotating backups of the store, or restore one with --from")
-    .option("--from <n>", "restore from backup number n (1 = most recent)", Number.parseInt)
-    .action(async (options: { from?: number }) => {
+    .option("--from <n>", "restore from backup number n (1 = most recent)")
+    .action(async (options: { from?: string }) => {
       const store = getStore();
-      if (options.from !== undefined) {
-        const restored = store.restoreBackup(options.from);
+      const fromIndex = parsePositiveInt(options.from, "backup number");
+      if (fromIndex !== undefined) {
+        if (fromIndex < 1) {
+          throw new StoreError("Invalid backup number. Use 1 for the most recent.", "invalid");
+        }
+        const restored = store.restoreBackup(fromIndex);
         printSuccess(`Restored ${store.file} from ${restored}`);
         printInfoLine("The previous state was kept as .pre-recover");
         return;
