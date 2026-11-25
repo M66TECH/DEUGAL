@@ -1,11 +1,11 @@
 import { createRequire } from "node:module";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import fsSync from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Command, CommanderError, Option } from "commander";
 import { ensureDataDir, loadConfig } from "./core/config.js";
-import { errorMessage, StoreError } from "./core/errors.js";
+import { errorMessage, stripBom, StoreError } from "./core/errors.js";
 import {
   applyConfigPatch,
   CONFIG_KEYS,
@@ -20,6 +20,7 @@ import { search } from "./core/search.js";
 import { SnippetStore } from "./core/store.js";
 import { findSimilar } from "./core/similar.js";
 import { browseSnippets } from "./ui/navigator-driver.js";
+import { migrateStore, toStoreData } from "./core/migrate.js";
 import { parseCommandLines } from "./core/textimport.js";
 import { inferFormat, parseBundle, serializeBundle, TRANSFER_VERSION } from "./core/transfer.js";
 import { sinceEpoch } from "./core/period.js";
@@ -399,6 +400,7 @@ function buildProgram(deps: MainDeps): Command {
     "add", "list", "recent", "search", "related", "show", "use", "edit", "rm",
     "pin", "unpin", "tag", "tags", "export", "import", "recover", "stats", "config",
     "similar", "dedupe", "history", "doctor", "completions", "candidates", "import-lines", "browse",
+    "migrate",
     "help",
   ];
 
@@ -831,6 +833,52 @@ function buildProgram(deps: MainDeps): Command {
       }
       for (const entry of entries) {
         process.stdout.write(`${dim(entry.hash)}  ${dim(entry.date.slice(0, 19).replace("T", " "))}  ${entry.message}\n`);
+      }
+    });
+
+  program
+    .command("migrate [file]")
+    .description("repair and upgrade a store file (defaults to yours); use --dry-run to preview")
+    .option("--dry-run", "show the repairs without writing anything")
+    .option("--json", "print JSON")
+    .action(async (file: string | undefined, options: { dryRun?: boolean; json?: boolean }) => {
+      const config = loadConfig();
+      const target = file !== undefined ? path.resolve(file) : config.storeFile;
+      if (!existsSync(target)) {
+        throw new StoreError(`No store file at ${target}. Nothing to migrate.`, "not-found");
+      }
+      let raw: unknown;
+      try {
+        raw = JSON.parse(stripBom(readFileSync(target, "utf8")));
+      } catch (err) {
+        throw new StoreError(
+          `Cannot parse ${target} as JSON: ${errorMessage(err)}. Fix it manually, or restore a backup with: deugal recover`,
+          "invalid",
+        );
+      }
+      const report = migrateStore(raw);
+      if (options.json) {
+        writeJson({ ...report, file: target, dryRun: options.dryRun === true });
+        if (options.dryRun !== true) {
+          writeFileSync(target, `${JSON.stringify(toStoreData(report.snippets), null, 2)}\n`, "utf8");
+        }
+        return;
+      }
+      printInfoLine(`file:      ${target}`);
+      printInfoLine(`schema:    ${report.fromVersion} -> ${report.toVersion}`);
+      printInfoLine(`snippets:  ${report.snippets.length}`);
+      if (report.repairs.length === 0) {
+        printSuccess("Store is already healthy. Nothing to repair.");
+      } else {
+        for (const repair of report.repairs) printInfoLine(`  - ${repair}`);
+        if (options.dryRun === true) {
+          printInfoLine(`${report.repairs.length} repair(s) pending. Run without --dry-run to apply.`);
+        } else {
+          printSuccess(`Applied ${report.repairs.length} repair(s).`);
+        }
+      }
+      if (options.dryRun !== true) {
+        writeFileSync(target, `${JSON.stringify(toStoreData(report.snippets), null, 2)}\n`, "utf8");
       }
     });
 

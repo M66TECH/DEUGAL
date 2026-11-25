@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomId } from "./id.js";
-import { errorMessage, StoreError } from "./errors.js";
+import { errorMessage, stripBom, StoreError } from "./errors.js";
 import type {
   ListOptions,
   NewSnippet,
@@ -97,7 +97,7 @@ export class SnippetStore {
     }
     let parsed: unknown;
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(stripBom(text));
     } catch {
       throw new StoreError(
         `Store file ${this.file} is not valid JSON. Fix or remove it, or set DEUGAL_HOME to another location.`,
