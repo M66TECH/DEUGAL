@@ -1,5 +1,5 @@
 import { stringify as stringifyYaml, parse as parseYaml } from "yaml";
-import { StoreError } from "./errors.js";
+import { stripBom, StoreError } from "./errors.js";
 import { normalizeSnippetInput } from "./store.js";
 import { randomId } from "./id.js";
 import { parseCsvSnippets, serializeCsv } from "./csv.js";
@@ -98,7 +98,7 @@ export function parseBundle(text: string, format: TransferFormat): Snippet[] {
   }
   let parsed: unknown;
   try {
-    parsed = format === "yaml" ? parseYaml(text) : JSON.parse(text);
+    parsed = format === "yaml" ? parseYaml(stripBom(text)) : JSON.parse(stripBom(text));
   } catch (err) {
     throw new StoreError(`Invalid ${format.toUpperCase()} input: ${(err as Error).message}`, "invalid");
   }

@@ -432,4 +432,25 @@ describe("SnippetStore error handling", () => {
     expect(store.size()).toBe(0);
     expect(store.all()).toEqual([]);
   });
+
+  it("tolerates a UTF-8 BOM written by other tools", () => {
+    const file = path.join(dir, "bom.json");
+    const payload = JSON.stringify({
+      version: 1,
+      snippets: [
+        {
+          id: "bom00001",
+          title: "avec bom",
+          content: "ok",
+          tags: [],
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          useCount: 0,
+        },
+      ],
+    });
+    writeFileSync(file, `\uFEFF${payload}`, "utf8");
+    const store = new SnippetStore(file);
+    expect(store.all()[0]?.title).toBe("avec bom");
+  });
 });

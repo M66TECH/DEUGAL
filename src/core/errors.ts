@@ -12,3 +12,7 @@ export function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
 }
+
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}

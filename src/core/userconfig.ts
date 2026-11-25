@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import path from "node:path";
-import { errorMessage, StoreError } from "./errors.js";
+import { errorMessage, stripBom, StoreError } from "./errors.js";
 import { randomId } from "./id.js";
 import type { SortMode } from "./types.js";
 
@@ -32,7 +32,7 @@ export function loadUserConfig(dataDir: string): DeugalUserConfig {
   if (!existsSync(file)) return emptyUserConfig();
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(file, "utf8"));
+    parsed = JSON.parse(stripBom(readFileSync(file, "utf8")));
   } catch (err) {
     throw new StoreError(
       `Config file ${file} is not valid JSON: ${errorMessage(err)}. Fix or delete it, or run: deugal config reset`,
