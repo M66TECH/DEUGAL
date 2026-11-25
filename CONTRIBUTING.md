@@ -46,3 +46,18 @@ Le projet suit une logique de type trunk-based, comme les grands projets open so
 ## Signaler un bug
 
 Ouvre une issue avec: commande lancee, sortie complete, version de node (`node -v`), OS.
+
+## Publier une version
+
+Reserve au mainteneur du paquet npm.
+
+1. Verifier que master est propre et vert: `npm run typecheck`, `npm test`, `npm run build`.
+2. Mettre a jour `package.json` (version) et `CHANGELOG.md` (section datee).
+3. Fusionner la branche de release dans master.
+4. Poser le tag: `git tag -a vX.Y.Z -m "Version X.Y.Z"` puis `git push origin master --tags`.
+5. Se connecter au registre: `npm login` (avec 2FA si active).
+6. Verifier le contenu du paquet: `npm run pack:check` (aucun fichier source ou secrete ne doit apparaitre).
+7. Publier: `npm publish` (le script `prepublishOnly` relance types, tests et build).
+8. Verifier l installation: `npm i -g @m66tech/deugal` puis `deugal --version`.
+
+En cas d erreur apres publication, on ne depublie pas: on publie un patch `X.Y.Z+1`.
