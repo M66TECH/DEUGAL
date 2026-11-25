@@ -2,6 +2,14 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 1.0.1
+
+### Corrections
+
+- Les options --limit, --from, -n et le compteur de recent refusent des valeurs non numeriques au lieu d afficher un resultat vide.
+- Un titre vide est signale comme tel, au lieu d accuser a tort un contenu vide.
+- Les fichiers absents ou illisibles (import, import-lines, migrate) produisent un message clair au lieu d une erreur ENOENT brute.
+
 ## 1.0.0
 
 Premiere version stable. L API du fichier de donnees est figee (schema 1) et la commande migrate garantit les mises a niveau.
