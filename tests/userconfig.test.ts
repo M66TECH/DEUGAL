@@ -45,6 +45,11 @@ describe("loadUserConfig", () => {
     writeFileSync(path.join(dir, "config.json"), "[1,2]", "utf8");
     expect(() => loadUserConfig(dir)).toThrow(StoreError);
   });
+
+  it("tolerates a UTF-8 BOM", () => {
+    writeFileSync(path.join(dir, "config.json"), '\uFEFF{"editor":"nvim"}', "utf8");
+    expect(loadUserConfig(dir)).toEqual({ editor: "nvim" });
+  });
 });
 
 describe("saveUserConfig", () => {
