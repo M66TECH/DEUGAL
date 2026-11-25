@@ -75,6 +75,7 @@ Ids are 8 characters — any unique prefix works: `deugal show gitu` is fine whe
 | `deugal history` | Git history of your store (after `deugal sync`), `--limit`, `--json` |
 | `deugal doctor` | Health check: node, data dir, store, backups, config, git sync |
 | `deugal recover [--from n]` | List the rotating backups, or restore the nth |
+| `deugal migrate [file]` | Repair and upgrade a store file (missing ids, string tags, invalid dates), `--dry-run` |
 | `deugal stats` | Collection stats (`--tag`, `--lang`, `--since`, `--json`) |
 | `deugal config` | Show preferences (`config set editor\|sort\|limit <value>`, `config reset`) |
 | `deugal completions <shell>` | Print a completion script for bash, zsh or powershell |

@@ -2,6 +2,21 @@
 
 Format inspire de Keep a Changelog. Versions gerees avec SemVer.
 
+## 1.0.0
+
+Premiere version stable. L API du fichier de donnees est figee (schema 1) et la commande migrate garantit les mises a niveau.
+
+### Ajouts
+
+- Commande migrate: repare et met a niveau un store (ids manquants ou dupliques, tags texte, dates invalides, titres multilignes), avec --dry-run.
+- Page de presentation publiee via GitHub Pages et workflow de deploiement.
+- Paquet npm pret a publier: publishConfig public, fichiers limites au strict necessaire, prepublishOnly qui verifie types, tests et build.
+
+### Corrections
+
+- Les fichiers JSON contenant un BOM UTF-8 (PowerShell, Notepad) sont acceptes au lieu d etre rejetes.
+- migrate fonctionne sur les stores des versions precedentes et refuse ceux d une version plus recente.
+
 ## 0.9.0
 
 ### Ajouts
